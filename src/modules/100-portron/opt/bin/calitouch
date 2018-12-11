@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # calibrate input devices to match provided monitor in $1
+# Author Rodolfo Lopez Pintor 2018
 
 TMP=/tmp/cali
 PATH=$PATH:/usr/bin:/bin

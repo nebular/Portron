@@ -1,8 +1,11 @@
 #!/bin/sh
 
+#
 # manage monitor hotplugging and touch recalibration
 # touch and input is mapped to main monitor (usecase touch computer with ext monitors)
+#
 # Author: Rodolfo Lopez Pintor 2018
+#
 
 TMP=/tmp/cali
 CFG_SCREEN_WALLPAPER=/usr/share/wallpapers/default.jpg

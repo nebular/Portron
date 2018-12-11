@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+#
+# Portron initRD support library
+# Author: Rodolfo Lopez Pintor <rlp@nebular.tv>
+#
+
 enablenetwork() {
 
     logme "- enabling network"

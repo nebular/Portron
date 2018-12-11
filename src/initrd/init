@@ -1,13 +1,18 @@
 #!/bin/sh
 
+#
+# Portron Initialization Script
+# Author: Rodolfo Lopez Pintor <rlp@nebular.tv>
+#
+# Based on Porteus Kiosk initialization script.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+#
+
 export MODPROBE="/union/sbin/modprobe"
 
 . init.config
 . init.lib
 
-#
-# Porteus Kiosk initialization script.
-# Author: T.Jokiel <http://porteus-kiosk.org>
 
 RED="[1;31m"
 

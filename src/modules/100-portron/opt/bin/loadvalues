@@ -1,5 +1,12 @@
 #!/bin/sh
 
+#
+# load system configuration values to the env
+# usage: loadvalues [PREFIX]
+#
+# Author: Rodolfo Lopez Pintor 2018
+#
+
 . /etc/profile.d/portron
 
 get_config(){
