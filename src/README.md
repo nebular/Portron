@@ -1,4 +1,4 @@
-<h1>PorTRON 0.4 Developer tools - alpha</h1>
+<h1>PorTRON 0.4 - Developer tools - alpha</h1>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
 This is the source linux distribution that wraps your electron application. The provided scripts would build and

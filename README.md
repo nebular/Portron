@@ -102,7 +102,7 @@ Package structure:
         ./bin           portron command-line utilities. Here are the scripts
                         you want to use, specifically electron-tgz2iso. You
                         can also generate the electron XZM module only with
-                        electron-tgz2xzm and include it on custom porteus systems.
+                        electron-tgz2xzm.
 
         ./src           source distrinution packages, not needed for building normally,
                         as a default distro image is already provided (name "default").
@@ -111,7 +111,8 @@ Package structure:
         ./lib           build support files
 
             ./portron.default/
-                    Source Portron Distribution (4.7.0)
+                    Source Portron Distribution. You can create additional distributions to use as build source
+                    using the Portron Development Tools in src/
 
             ./xzm.fs
                     root filesystem that is packed with your electron app. It basically
