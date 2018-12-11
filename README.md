@@ -1,9 +1,7 @@
-<h1>initial commit - please do not use yer - project is not ready </h1>
-
 <h1>PorTRON 0.4 alpha</h1>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
-<h2>PorTRON: Where Porteus meets Electron,</h2>
+<h2>PorTRON: Where Porteus meets Electron</h2>
 
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
@@ -109,7 +107,7 @@ Package structure:
         ./src           source distrinution packages, not needed for building normally,
                         as a default distro image is already provided (name "default").
                         <a href="src/README.md">Check out the specific document about sources.</a>
-                   
+
         ./lib           build support files
 
             ./portron.default/
