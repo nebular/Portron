@@ -63,19 +63,14 @@ The scripts are still a little rough, and if this dependencies are not met they 
 
     mksquashfs (debian package squashfs-tools)
     isohybrid (included, compiles on installation)
-    sh
-    write permissions to /tmp/ directory
-    enough space on hard disk, like 3 times the original .tar.gz file, for intemediate files
-
 
 <code>Isohybrid</code> source code is provided, as it is a very small program, you can compile it yourself with gcc if not able to install it from your repository.
 
 Considerations
 --------------
 
-    Package structure:
+Package structure:
 
-    <pre>
     ./portron/
 
         ./bin           portron command-line utilities. Here are the scripts
@@ -122,9 +117,6 @@ Considerations
             ./src.initrd
                     source initrd. contains low level system startup scripts.
 
-    </pre>
-
-
 <h2>Troubleshooting</h2>
 ---------------
 
@@ -142,8 +134,8 @@ Considerations
 License
 -------
 
-    This work is based on Porteus that is protected under a GPL License. So we
-    also release it under the same license terms.
+    GNU GPL 2.0
+    Please see attached <a href="GNU_GPL">file</a>.
 
 
 TO-DO
