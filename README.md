@@ -134,8 +134,8 @@ Package structure:
 License
 -------
 
-    GNU GPL 2.0
-    Please see attached <a href="GNU_GPL">file</a>.
+GNU GPL 2.0
+Please see attached <a href="GNU_GPL">file</a>.
 
 
 TO-DO
