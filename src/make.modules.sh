@@ -1,27 +1,29 @@
 #!/bin/bash
 
-echo "----------- Making Modules"
+. make.env.sh
 
-BASE="$(cd "$(dirname "$0")"; pwd)"
-cd ${BASE}/modules
-pwd
+TARGET=${PORTRONLIB}/portron.${1}
 
-if [ -d ../../lib/${1} ]; then
+if [ -d ${TARGET} ]; then
 
-    [ -d /tmp/extraxzm ] && rm -rf /tmp/extraxzm
-    mkdir /tmp/extraxzm
-
-    #../bin/mkxzm /tmp/extraxzm/000-kernel.xzm 000-kernel
-    ../../bin/mkxzm /tmp/extraxzm/002-system.xzm 002-system
-    ../../bin/mkxzm /tmp/extraxzm/003-theme.xzm 003-theme
-    ../../bin/mkxzm /tmp/extraxzm/99-xterm.xzm 99-xterm
-    ../../bin/mkxzm /tmp/extraxzm/100-portron.xzm 100-portron
-    ../../bin/mkxzm /tmp/extraxzm/101-portron-wizard.xzm 101-portron-wizard
-
-    cp -v /tmp/extraxzm/*.xzm ../../lib/$1/xzm/
-    rm -rf /tmp/extraxzm
-
+    rm ${TARGET}/xzm
+    [ -d ${TARGET}/xzm ] && rm -rf  ${TARGET}/xzm
+    mkdir -p ${TARGET}/xzm
+    cd modules
+    ${PORTRONDIR}/bin/mkxzm ${TARGET}/xzm/${TARGET}/xzm/000-kernel.xzm 000-kernel
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/001-core.xzm 001-core
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/002-system.xzm 002-system
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/003-theme.xzm 003-theme
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/004-wifi.xzm 004-wifi
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/99-xterm.xzm 99-xterm
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/100-portron.xzm 100-portron
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/101-portron-wizard.xzm 101-portron-wizard
+    cd ..
 else
-    echo "Usage: ${0} distrofolder"
+    echo "Usage: ${0} distro \n"
+    echo "- compiles and copies the modules to the specified distro"
+    echo "- use default as the default distro"
+    printdistros
+
 fi
 

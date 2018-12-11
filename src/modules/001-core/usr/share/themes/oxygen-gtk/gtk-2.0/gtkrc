@@ -1,0 +1,245 @@
+# this file is part of the oxygen gtk engine
+# Copyright (c) 2010 Hugo Pereira Da Costa <hugo.pereira@free.fr>
+# Copyright (c) 2010 Ruslan Kabatsayev <b7.10110111@gmail.com>
+#
+# based on the Null Theme Engine for Gtk+.
+# Copyright (c) 2008 Robert Staudinger
+#
+# Icon rendering code from Walmis
+# <http://gnome-look.org/content/show.php?content=77783&forumpage=3>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or( at your option ) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+# MA 02110-1301, USA.
+
+# oxygen's generic style options
+style "oxygen-default"
+{
+    GtkPaned::handle-size = 3
+
+    GtkButton::child_displacement_x = 0
+    GtkButton::child_displacement_y = 0
+    GtkButton::default_border = { 0, 0, 0, 0 }
+    GtkButton::default_outside_border = { 0, 0, 0, 0 }
+
+    GtkButton::inner-border = { 2, 2, 1, 0 }
+    GtkToggleButton::inner-border = { 0, 0, 1, 0 }
+
+    GtkCalendar::inner-border = 0
+    GtkCalendar::horizontal-separation = 0
+    GtkCheckButton::indicator-size = 18
+    GtkComboBox::appears-as-list = 1
+    GtkEntry::honors-transparent-bg-hint = 1
+
+    GtkExpander::expander-size = 15
+
+    GtkMenu::horizontal-padding = 3
+    GtkMenu::vertical-padding = 5
+    GtkMenu::horizontal-offset = -7
+    GtkMenuBar::internal-padding = 0
+    GtkCheckMenuItem::indicator-size = 16
+
+    GtkScale::slider-width = 23
+    GtkScale::slider-length = 21
+
+    GtkRange::activate-slider = 1
+
+    GtkScrollbar::trough-border=0
+    GtkScrollbar::stepper-size=12
+    GtkScrolledWindow::scrollbar-spacing=1
+    GtkStatusbar::has-resize-grip = FALSE
+
+    GtkTreeView::allow-rules = 1
+    GtkTreeView::row-ending-details = 1
+    GtkTreeView::expander-size = 10
+    GtkTreeView::vertical-separator = 0
+
+    # shadow types
+    GtkMenuBar::shadow-type = GTK_SHADOW_NONE
+    GtkStatusbar::shadow-type = GTK_SHADOW_NONE
+    GtkToolbar::shadow-type = GTK_SHADOW_NONE
+
+    engine "oxygen-gtk"
+    {}
+}
+
+class "*" style "oxygen-default"
+
+# force resize-handle size to zero
+style "oxygen-sizegrip" = "oxygen-default"
+{
+
+    GtkWindow::resize-grip-height = 0
+    GtkWindow::resize-grip-width = 0
+}
+
+class "GtkWidget" style "oxygen-sizegrip"
+
+# menuitems padding
+style "oxygen-menubar" = "oxygen-default"
+{
+    xthickness = 1
+    ythickness = 1
+}
+
+class "GtkMenuBar" style "oxygen-menubar"
+
+# menuitems padding
+style "oxygen-menubaritem" = "oxygen-default"
+{
+    xthickness = 3
+    ythickness = 2
+}
+
+style "oxygen-menuitem" = "oxygen-default"
+{
+    xthickness = 1
+    ythickness = 5
+}
+
+style "oxygen-separator-menuitem" = "oxygen-default"
+{
+    xthickness = 1
+    ythickness = 1
+}
+
+class "GtkMenuItem" style "oxygen-menubaritem"
+widget_class "*<GtkMenu>.<GtkMenuItem>" style "oxygen-menuitem"
+widget_class "*<GtkMenu>.<GtkSeparatorMenuItem>" style "oxygen-separator-menuitem"
+
+# toolbuttons with menu
+style "oxygen-menutoolbutton" = "oxygen-default"
+{
+    xthickness=1
+    ythickness=1
+    GtkButton::focus-padding=0
+    GtkWidget::focus-line-width=0
+}
+
+class "*GtkMenuToolButton" style "oxygen-menutoolbutton"
+widget_class "*.GtkMenuToolButton.*Box.GtkToggleButton" style "oxygen-menutoolbutton"
+
+# icon views
+style "oxygen-iconview" = "oxygen-default"
+{ GtkWidget::focus-line-width=0 }
+
+class "GtkIconView" style "oxygen-iconview"
+
+# notebook settings
+style "oxygen-notebook" = "oxygen-default"
+{
+    xthickness = 4
+    ythickness = 4
+}
+
+class "GtkNotebook" style "oxygen-notebook"
+
+# comboboxes
+style "oxygen-combobox" = "oxygen-default"
+{
+    # must set combobox frame x thickness to 0, otherwise there
+    # is a dead area between combobox text and button
+    xthickness = 0
+    ythickness = 2
+}
+
+style "oxygen-combobox-frame" = "oxygen-default"
+{
+    xthickness = 4
+    ythickness = 4
+}
+
+class "GtkComboBox" style "oxygen-combobox"
+widget_class "*<GtkComboBox>.<GtkFrame>" style "oxygen-combobox-frame"
+
+# editable combobox margins
+style "oxygen-combobox-entry" = "oxygen-default"
+{
+    xthickness = 1
+    ythickness = 1
+}
+
+class "GtkComboBoxEntry" style "oxygen-combobox-entry"
+
+# GtkCombo
+style "oxygen-combo-button" = "oxygen-combobox-entry"
+{
+    xthickness = 0
+    ythickness = 2
+}
+
+widget_class "*<GtkCombo>.<GtkButton>" style "oxygen-combo-button"
+
+# option menu
+style "oxygen-option-menu" = "oxygen-default"
+{
+    xthickness = 4
+    ythickness = 0
+}
+
+class "GtkOptionMenu" style "oxygen-option-menu"
+
+# vertical separators need enough room
+style "oxygen-vseparator" = "oxygen-default"
+{
+    xthickness = 3
+    ythickness = 2
+}
+
+class "GtkVSeparator" style "oxygen-vseparator"
+
+# 2pixels thickness.
+style "oxygen-w2" = "oxygen-default"
+{
+    xthickness = 2
+    ythickness = 2
+}
+
+class "GtkScrolledWindow" style "oxygen-w2"
+class "GtkViewport" style "oxygen-w2"
+class "GtkFrame" style "oxygen-w2"
+class "gtkmm__GtkSpinButton" style "oxygen-w2"
+
+# 1pixels thickness.
+style "oxygen-progressbar" = "oxygen-default"
+{
+    xthickness = 1
+    ythickness = 0
+}
+class "GtkProgressBar" style "oxygen-progressbar"
+
+# tree headers
+style "oxygen-header" = "oxygen-default"
+{
+    xthickness = 2
+    ythickness = 0
+}
+widget_class "*<GtkTreeView>.<GtkButton>" style "oxygen-header"
+widget_class "*<GtkList>.<GtkButton>" style "oxygen-header"
+widget_class "*GimpThumbBox*.<GtkEventBox>.<GtkVBox>.<GtkButton>" style "oxygen-header"
+
+#############
+# Workarounds
+#
+# # gimp
+# # this is commented, as it is apparently crashing for gimp-2.7
+# style "oxygen-gimp-scale"
+# {
+#     # this ensures that toolpanels fonts in gimp is identical
+#     # to default font (which otherwise is ugly
+#     GimpDock::font-scale = 1.01
+# }
+#
+# class "*" style "oxygen-gimp-scale"
+

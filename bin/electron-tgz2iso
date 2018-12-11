@@ -12,7 +12,7 @@ BASE="$(dirname "$(readlink "$0")")"
 cd ${BASE}
 
 [ "$4" ] && {
-    distro=$4
+    distro=portron.$4
 } || {
     distro=portron.default
 }
@@ -40,6 +40,8 @@ if [ -f ${tarfile} ]; then
 
     xzmfile=/tmp/${appname}.xzm
 
+    [ -f ${destination} ] && rm -f ${destination}
+
     ./electron-tgz2xzm ${tarfile} ${xzmfile} ${appname} ${longname}
 
     ./electron-xzm2iso ${xzmfile} ${destination} ${appname} ${image} ${distro}
@@ -48,9 +50,18 @@ if [ -f ${tarfile} ]; then
 
     if [ -f "${destination}" ]; then
 
+           echo "- success, ISO was created"
+
            if [ "`command -v say`" ]; then
                 say "portron application ${appname} ready!"
            fi
+    else
+           echo "- error, ISO was not created"
+
+           if [ "`command -v say`" ]; then
+                say "life sucks"
+           fi
+
     fi
 
 else

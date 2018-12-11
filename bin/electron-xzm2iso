@@ -34,6 +34,8 @@ if [ "${appname}" ]; then
 
         [ -d ${distro} ] && {
 
+            TEMP=/tmp/distro.${appname}
+
             echo "-------------------------------------------------"
             echo "xzm2iso, Building Porteus distro ${4} from XZM module"
 
@@ -41,19 +43,24 @@ if [ "${appname}" ]; then
             echo "- source distro ${distro}"
             echo "- Target ISO ${destination}"
             echo "- App Name ${appname}, image ${image}"
-
+            echo "- temp folder ${TEMP}"
             echo "-------------------------------------------------"
+
+
+            [ -d ${TEMP} ] && rm -rf ${TEMP}
+            mkdir -p ${TEMP}
+            cp -a ${distro}/* ${TEMP}/
 
             cd ${BASE}/xzm2iso
 
             [ -f ${xzmfile} ] && {
-                ./1-copy-xzm.sh ${xzmfile} ${distro} ${image}
-                ./2-make-iso.sh ${appname} ${distro} ${destination}
+                ./1-copy-xzm.sh ${xzmfile} ${TEMP} ${image}
+                ./2-make-iso.sh ${appname} ${TEMP} ${destination}
             } || {
                 error "- XZM not found"
             }
         } || {
-            error "- no base distro specified"
+            error "- specified distro ${distro} not found"
         }
 
     } || {

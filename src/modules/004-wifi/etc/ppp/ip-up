@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# This script is run by pppd after the link is established.
+# It executes all the scripts available in /etc/ppp/ip-up.d directory,
+# with the following parameters:
+# $1 = interface name (e.g. ppp0)
+# $2 = tty device
+# $3 = speed
+# $4 = local IP address
+# $5 = remote IP address
+# $6 = ipparam (user specified parameter, see man pppd)
+
+cd /etc/ppp/ip-up.d || exit
+
+for SCRIPT in *.sh ; do
+	. ./"${SCRIPT}" "$@"
+done

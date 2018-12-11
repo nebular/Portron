@@ -1,0 +1,75 @@
+!! XVkbd-hebrew.ad  - sample app-defaults file for xvkbd
+!! by Tom Sato <VEF00200@nifty.ne.jp>, http://homepage3.nifty.com/tsato/
+!!
+!! This app-defaults file is contributed from Genghis Khan (Nov 2014)
+
+#include "XVkbd-common"
+
+! Make the virtual keyboard support Hebrew characters
+!
+xvkbd.title: xvkbd - Virtual Keyboard (Hebrew)
+
+xvkbd*generalFont: -*-*-*-r-*-*-14-*-*-*-*-*-iso8859-8
+xvkbd*letterFont: -*-*-*-r-*-*-14-*-*-*-*-*-iso8859-8
+
+xvkbd*Mode_switch.width: 50
+xvkbd*space.width: 110
+
+xvkbd.NormalKeys: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 BackSpace \n\
+  Escape 1 2 3 4 5 6 7 8 9 0 - = \\ ` \n\
+  Tab q w e r t y u i o p [ ] Delete \n\
+  Control_L a s d f g h j k l ; ' Return \n\
+  Shift_L z x c v b n m , . / Multi_key Shift_R \n\
+  MainMenu Caps_Lock Alt_L Meta_L space Mode_switch Left Right Up Down Focus
+
+xvkbd.ShiftKeys: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 BackSpace \n\
+  Escape ! @ # $ % ^ & * ( ) _ + | ~ \n\
+  ISO_Left_Tab Q W E R T Y U I O P { } Delete \n\
+  Control_L A S D F G H J K L : \" Return \n\
+  Shift_L Z X C V B N M < > ? Multi_key Shift_R \n\
+  MainMenu Caps_Lock Alt_L Meta_L space Mode_switch Left Right Up Down Focus
+
+xvkbd.AltgrKeys: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 BackSpace \n\
+  Escape 1 2 3 4 5 6 7 8 9 0 - = \\ ; \n\
+  Tab / ' hebrew_qoph hebrew_resh hebrew_aleph hebrew_tet \
+    hebrew_waw hebrew_finalnun hebrew_finalmem hebrew_pe [ ] Delete \n\
+  Control_L hebrew_shin hebrew_dalet hebrew_gimel hebrew_kaph hebrew_ayin hebrew_yod hebrew_chet hebrew_lamed hebrew_finalkaph hebrew_finalpe , Return \n\
+  Shift_L hebrew_zain hebrew_samech hebrew_bet hebrew_he hebrew_nun hebrew_mem hebrew_zade hebrew_taw hebrew_finalzade . \
+    Multi_key Shift_R \n\
+  MainMenu Caps_Lock Alt_L Meta_L space Mode_switch Left Right Up Down Focus
+
+xvkbd.KeyLabels: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 Backspace \n\
+  Esc !\n1 @\n2 #\n3 $\n4 %\n5 ^\n6 &\n7 *\n8 (\n9 )\n0 _\n- +\n= |\n\\ ~\n`_\; \n\
+  Tab Q_\/ W_\' E_\367 R_\370 T_\340 Y_\350 U_\345 I_\357 O_\355 P_\364 \
+    {\n[ }\n]   Del \n\
+  Control   A_\371 S_\343 D_\342 F_\353 G_\362 H_\351 J_\347 K_\354 L_\352 :\n;_\363 \"\n'_\, Return \n\
+  Shift Z_\346 X_\361 C_\341 V_\344 B_\360 N_\356 M_\366 <\n,_\372 >\n._\365 ?\n/_\. Com\npose Shift \n\
+  MainMenu Caps\nLock Alt Meta space AltGr left right up down Focus
+
+xvkbd.NormalKeyLabels: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 Backspace \n\
+  Esc 1 2 3 4 5 6 7 8 9 0 - = \\ ` \n\
+  Tab q w e r t y u i o p [ ] Del \n\
+  Ctrl a s d f g h j k l ; ' Return \n\
+  Shift z x c v b n m , . / Comp Shift \n\
+  MainMenu Caps Alt Meta space AltGr left right up down Focus
+
+xvkbd.ShiftKeyLabels: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 Backspace \n\
+  Esc ! @ # $ % ^ & * ( ) _ + | ~ \n\
+  Tab Q W E R T Y U I O P { } Del \n\
+  Ctrl A S D F G H J K L : \" Return \n\
+  Shift Z X C V B N M < > ? Comp Shift \n\
+  MainMenu Caps Alt Meta space AltGr left right up down Focus
+
+xvkbd.AltgrKeyLabels: \
+  F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 Backspace \n\
+  Esc 1 2 3 4 5 6 7 8 9 0 - = \\ ` \n\
+  Tab / ' \367 \370 \340 \350 \345 \357 \355 \364 [ ] Del \n\
+  Ctrl \371 \343 \342 \353 \362 \351 \347 \354 \352 \363 , Return \n\
+  Shift \346 \361 \341 \344 \360 \356 \366 \372 \365 . Comp Shift \n\
+  MainMenu Caps Alt Meta space AltGr left right up down Focus
