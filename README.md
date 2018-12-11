@@ -109,32 +109,7 @@ Package structure:
         ./src           source distrinution packages, not needed for building normally,
                         as a default distro image is already provided (name "default").
                         <a href="src/README.md">Check out the specific document about sources.</a>
-                        document
-                        but provided just in case you need to modify the core modules.
-
-                        000-kernel
-                            Contains the linux kernel
-                        001-core
-                            Contains the base linux system programs
-                        002-system
-                            Contains the base linux system structure
-                        003-theme
-                            All files related to UI theming
-                        004-wifi
-                            WIFI subsystem
-                        100-portron
-                            Core portron files and libraries
-                        101-portron-wizard
-                            Install wizard, Runtime Configuration Wizard,
-                            Network Wizard, Screen Wizard ...
-                         90-xterm
-                            Optionalg: An X-Term
-                         08-sshd
-                            Optional: SSH server
-                         09-httpd
-                            Optional: micro HTTP server
-
-
+                   
         ./lib           build support files
 
             ./portron.default/
