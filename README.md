@@ -34,7 +34,7 @@ to install the system persistently to the Hard Disk, SD-Card or the same USB Key
     electron package. If it sounds confusing remember it boils down to a simple rule: Use the tar.gz
     as-is. Do not rename or change anything.
 
-3 - <li>invoke the builder:</li>
+<li>invoke the builder:</li>
 
     /opt/portron/bin/electron-tgz2iso [input.tar.gz] [splashscreen.jpg] [output.iso] [
 
@@ -59,8 +59,7 @@ to install the system persistently to the Hard Disk, SD-Card or the same USB Key
 
 <h2>PorTron dependencies and requirements</h2>
 
-    The scripts are still a little rough, and if this dependencies are not met
-    they can fail unpredictably.
+The scripts are still a little rough, and if this dependencies are not met they can fail unpredictably.
 
     mksquashfs (debian package squashfs-tools)
     isohybrid (included, compiles on installation)
@@ -69,8 +68,7 @@ to install the system persistently to the Hard Disk, SD-Card or the same USB Key
     enough space on hard disk, like 3 times the original .tar.gz file, for intemediate files
 
 
-    Isohybrid source code is provided, as it is a very small program, you can compile
-    it yourself with gcc if not able to install it from your repository.
+<code>Isohybrid</code> source code is provided, as it is a very small program, you can compile it yourself with gcc if not able to install it from your repository.
 
 Considerations
 --------------
