@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Run local commands when network is established.
+# Examples:
+# - start LAMP services
+# - download file from the network
+# - mount remote share
+
+

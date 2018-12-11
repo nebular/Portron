@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Modified: Rodolfo Lopez <rlp@nebular.tv>
+
+setuphwclock() {
+
+    # Set default time zone:
+    if [ "${CFG_TIMEZONE}" ]; then
+        ln -sf /usr/share/zoneinfo/${CFG_TIMEZONE} /etc/localtime-copied-from
+        cp -L /etc/localtime-copied-from /etc/localtime
+        hwclock --utc -s &
+    fi
+
+}
+
+setuphwclock

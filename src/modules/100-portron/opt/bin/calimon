@@ -1,0 +1,60 @@
+#!/bin/sh
+
+# manage monitor hotplugging and touch recalibration
+# touch and input is mapped to main monitor (usecase touch computer with ext monitors)
+# Author: Rodolfo Lopez Pintor 2018
+
+TMP=/tmp/cali
+CFG_SCREEN_WALLPAPER=/usr/share/wallpapers/default.jpg
+
+export PATH=$PATH:/usr/bin:/bin
+
+if [ -d ${TMP} ] || [ ! -f /var/run/portron.xsystem.started ]; then
+    echo "cannot run, already running or system early stage"
+else
+
+    date > /var/run/portron.calimon.ran
+
+    ## Setup temp dir
+    mkdir ${TMP}
+
+    #sleep 1
+
+    xrandr 2>/dev/null | sed -e 's/+//g' -e 's/\*//g' > ${TMP}/output.txt
+
+
+    op=${TMP}/output.txt
+
+    ## Create file of connected displays
+
+    grep -w "connected" ${op} | cut -d' ' -f1 > ${TMP}/displays.on.txt
+    grep -w "disconnected" ${op} | cut -d' ' -f1 > ${TMP}/displays.off.txt
+
+    xdis=${TMP}/displays.txt
+    disoncnt=`wc -l < ${TMP}/displays.on.txt`
+    disoffcnt=`wc -l < ${TMP}/displays.off.txt`
+
+    echo "- ${disoncnt} displays connected"
+    echo "- ${disoffcnt} displays disconnected"
+
+    unset last
+
+    while IFS='' read -r line || [[ -n "$line" ]]; do
+        [ "${last}" ] && {
+            echo "- setting ${line} right of ${last}"
+            /usr/bin/xrandr --output ${line} --right-of ${last} --auto
+        } || {
+            last=${line}
+        }
+
+    done < ${TMP}/displays.on.txt
+
+    # Set wallpaper according to current screen size:
+    /usr/bin/hsetroot -fill ${CFG_SCREEN_WALLPAPER}
+
+    sleep 5
+
+    . /opt/bin/calitouch ${last}
+
+    rm -rf ${TMP}
+fi

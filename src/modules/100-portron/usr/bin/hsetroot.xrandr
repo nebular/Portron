@@ -1,0 +1,7 @@
+# helper script for hsetroot (called from it)
+# prints xrandr geo expression only, one line per monitor
+# like 1024x768+0+0 . Adjust the cuts if needed.
+# (not very elaborated solution)
+
+xrandr | grep " connected" | sed -e "s/^.*[[:space:]]\+\([0-9]\+x[0-9]\+[-+][0-9]\+[-+][0-9]\+\)[[:space:]]\+.*$/\1/"
+

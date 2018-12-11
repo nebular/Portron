@@ -1,0 +1,54 @@
+#!/bin/sh
+# This script is called by /lib/udev/rules.d/10-kiosk-auto_mount.rules
+
+# Variables initialized by the udev environment:
+# $ACTION (add, change, remove)
+# $DEVNAME (device name including path)
+# $ID_FS_TYPE (filesystem type)
+
+# Exit if session is not started yet:
+[ "`pidof session-manager`" ] && exit
+
+# Our variables:
+PTH=/usr/share/icons/oxygen/22x22
+FS=$ID_FS_TYPE
+
+mntdev() {
+# Default mounting flags:
+MOPT="ro"
+# Mount device:
+if [ "$FS" = vfat ]; then mount -t $FS -o $MOPT,umask=0,check=s,utf8 $DEVNAME /media
+elif [ "$FS" = ntfs ]; then ntfs-3g -o $MOPT,umask=0 $DEVNAME /media
+else mount -t $FS -o $MOPT $DEVNAME /media
+fi
+if [ $? -eq 0 ]; then
+    [ -x /opt/google/chrome/chrome ] && browser=chrome || browser=firefox
+    su - -c 'dunstify -u low -i '$PTH'/actions/dialog-ok-apply.png "Removable device '$DEVNAME' mounted under /media folder."'
+    grep -q '#nav-bar' /home/guest/.mozilla/firefox/c3pp43bg.default/chrome/userChrome.css || su -l guest -c "$browser /media"
+    # Display device in the filepicker panel:
+    echo "$DEVNAME /media $FS $MOPT,user,umask=0 0 0" > /etc/fstab
+fi
+}
+
+umntdev() {
+# Unmount device to get rid of entries in /proc/mounts:
+umount /media; rm -f /etc/fstab
+# Display notification:
+su - -c 'dunstify -u low -i '$PTH'/actions/dialog-ok-apply.png "Removable device '$DEVNAME' unplugged/ejected."'
+}
+
+if [ "$ACTION" = add ]; then
+    # Mount media:
+    [ "$FS" ] && mntdev
+elif [ "$ACTION" = change ]; then
+    if grep -q -w "^$DEVNAME" /proc/mounts; then
+        # Unmount media:
+        umntdev
+    else
+        # Mount media:
+        [ "$FS" ] && mntdev
+    fi
+elif [ "$ACTION" = remove ]; then
+    # Unmount media:
+    umntdev
+fi

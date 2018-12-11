@@ -1,0 +1,12 @@
+#!/bin/sh
+
+
+. /opt/bin/loadvalues CFG
+
+GLOBALAUTOSTART="/etc/rc.d/rc.openbox"
+
+# Run the global openbox autostart script
+
+if test -f ${GLOBALAUTOSTART}; then
+    . ${GLOBALAUTOSTART} > /var/log/portron.autostart
+fi

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+setupscreensaver() {
+
+    # Disable DPMS Xorg features and builtin screen-saver:
+    xset -dpms
+    xset s 0
+
+    # Enable screensaver in case when no activity is detected:
+    # [ "${CFG_SAVER_SSIDLE}" ] && /opt/scripts/screensaver-idle-watcher &
+
+    # Restart browser/session in case when no activity is detected:
+    # [ "${CFG_SAVER_SIDLE}" ] && /opt/scripts/session-idle-watcher &
+
+}
+
+
+setupscreensaver
+

@@ -1,0 +1,28 @@
+#
+# inittab	This file describes how the INIT process should set up
+#		the system in a certain run-level.
+
+# Default runlevel.
+id:4:initdefault:
+
+# System initialization.
+si::sysinit:/etc/rc.d/rc.S
+
+# Script to run when going multi user.
+rc:2345:wait:/etc/rc.d/rc.M
+
+# What to do at the "Three Finger Salute".
+#ca::ctrlaltdel:/sbin/poweroff
+
+# Runlevel 0 halts the system.
+l0:0:wait:/etc/rc.d/rc.0
+
+# Runlevel 6 reboots the system.
+l6:6:wait:/etc/rc.d/rc.6
+
+# Standard console login:
+#c1::respawn:/sbin/agetty 38400 tty1 linux
+#c2::respawn:/sbin/agetty 38400 tty2 linux
+
+# Start /etc/rc.d/rc.4 to get into GUI:
+x1:4:respawn:/etc/rc.d/rc.4

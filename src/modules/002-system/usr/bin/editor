@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Display message:
+echo "$0 is not available. Please use 'mcedit' utility instead."
+

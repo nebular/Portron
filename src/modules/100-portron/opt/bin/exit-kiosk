@@ -1,0 +1,69 @@
+#!/bin/bash
+#
+# Shutdown/logout helper for kiosk.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Kill previous instances:
+kill -9 `ps | grep EXIT_MENU | grep -v grep | tr -s ' ' | sed -e 's/^ //g' | cut -d' ' -f1 | tr '\n' ' '` 2>/dev/null
+
+# Offer exit options:
+
+# genoption label icon action tooltip
+
+. /opt/bin/loadvalues CFG_SHUTDOWN
+
+hasvalue() {
+    hasit=`echo "${CFG_SHUTDOWN}" | grep "$1"`
+    [ "${hasit}" ] && echo "yes"
+}
+
+# caption icon action1 flag
+genoption() {
+
+    [ "$4" ] && [ ! "`hasvalue "$4"`" ] || {
+
+        echo '<button image-position="2">
+        <input file icon="'$2'"></input>
+        <label>'$1'</label>
+        <action>'$3'</action>
+        <action function="exit">finished</action></button>'
+
+    }
+}
+
+export EXIT_MENU='
+<window decorated="true" title="Power Menu" window-position="1" icon-name="kiosk" width-request="200">
+    <vbox>
+'"`
+genoption "Shutdown" "system-shutdown" "init 0" "shutdown"
+genoption "Reboot" "system-reboot" "init 6" "reboot"
+genoption "Sleep" "system-suspend" "echo $(cat /sys/power/state | tr \" \" \"\n\" | sort | tail -n1) > /sys/power/state" "sleep"
+genoption "Restart" "system-log-out" "openbox --exit" "session"
+
+if [ ! -e /var/run/portron.kp.disnet ]; then
+    if [ ! -e /var/run/portron.net.wizard ]; then
+        genoption "Network Setup" "system-suspend" "/opt/setup/network/check.sh force&"
+    fi
+fi
+
+if [ -e /var/run/portron.persistence ]; then
+    genoption "Configuration" "system-logout" "/opt/setup/wizard&"
+else
+    [ -e /var/run/portron.kp.reqpers ] || {
+        genoption "Installation" "system-logout" "/opt/setup/wizard&"
+    }
+fi
+
+if [ -e /etc/xzm/xterm ]; then
+    genoption "Terminal" "view-fullscreen" "/usr/bin/xterm&"
+fi
+
+genoption "Cancel" "dialog-cancel" "echo bye"
+
+`"'
+    </vbox>
+</window>
+'
+
+gtkdialog --program=EXIT_MENU
+

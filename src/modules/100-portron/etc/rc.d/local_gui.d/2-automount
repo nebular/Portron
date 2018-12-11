@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Enable support for removable devices:
+[ "${CFG_REMOVABLES}" ] && mv /sbin/udev-automount-disabled /sbin/udev-automount
+

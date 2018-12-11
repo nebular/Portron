@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Xorg initialization helper.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+sleep 2
+if grep -q 'Fatal server error:' /var/log/Xorg.0.log 2>/dev/null; then
+    echo
+    rm -f /etc/X11/xorg.conf /etc/X11/xorg.conf.d/11-*
+    echo "Xorg failed to start up - using VESA driver on next try."
+    cp -a /etc/X11/11-vesa.conf /etc/X11/xorg.conf.d
+fi

@@ -1,0 +1,152 @@
+#!/bin/sh
+#
+# Screen setup.
+# From Porteus-kiosk
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Exit if no argument provided:
+if [ "$1" ]; then
+
+    # Functions:
+    div() {
+        p=12
+        c=${c:-0}
+        d=.
+        r=$(($1/$2)); echo -n $r
+        m=$(($r*$2))
+        [ $c -eq 0 ] && [ $m -ne $1 ] && echo -n $d
+        [ $1 -eq $m ] || [ $c -eq $p ] && return
+        d=$(($1-$m))
+        let c=c+1
+        div $(($d*10)) $2
+    }
+
+    # Need to find primary output for touch rotation:
+    priout=`xrandr | grep -w "connected" | head -n1 | cut -d" " -f1`
+
+    # Configure screens:
+    for line in $*; do
+        if [ "$line" != test ]; then
+        # Define values:
+        out=`echo $line | cut -d: -f1`; [ "$out" ] && output="--output $out"
+        res=`echo $line | cut -d: -f2`; [ "$res" = disabled ] && resolution="--off" || resolution="--mode $res"
+        rat=`echo $line | cut -d: -f3`; [ "$rat" ] && rate="--rate $rat"
+        brig=`echo $line | cut -d: -f4`; [ "$brig" ] && [ "$brig" != normal ] && brightness=$brig
+        rot=`echo $line | cut -d: -f5`; [ "$rot" ] && { rotate="--rotate $rot"; rotateinput=$rot; }
+        pos=`echo $line |  cut -d: -f6`
+        if [ "$pos" ]; then
+            if echo $pos | grep -q same; then scale="$(echo $pos | sed s/^same-as-//)"; xrandr $output --off # Xorg 1.18.x and above sets the screens next to each other by default, need to workaround this by disabling screen for a while.
+            elif echo $pos | grep -q above; then position="--above $(echo $pos | sed s/^above-//)"
+            elif echo $pos | grep -q below; then position="--below $(echo $pos | sed s/^below-//)"
+            elif echo $pos | grep -q left; then position="--left-of $(echo  $pos | sed s/^left-of-//)"
+            elif echo $pos | grep -q right; then position="--right-of $(echo $pos | sed s/^right-of-//)"
+            fi
+        fi
+        # Process only connected displays:
+        if [ "`xrandr | grep -w connected | grep ^$out`" ]; then
+            # Combine arguments:
+            args="$args $output $resolution $rate $rotate $position"
+            # Set brightness:
+            [ "$brightness" ] && for x in `ls /sys/class/backlight`; do echo $((`cat /sys/class/backlight/$x/max_brightness`*$brightness/100)) > /sys/class/backlight/$x/brightness; done
+            # Scale screens:
+            [ "$scale" ] && scalem="$scalem "$out"x"$res"x"$scale""
+        fi
+        # Cleanup:
+        unset output resolution rate brightness rotate position scale
+        fi
+    done
+
+    # Apply changes:
+    xrandr $args
+
+    # Do the scaling now:
+    if [ "$scalem" ]; then
+        for line in "$scalem"; do
+        out=`echo $line | cut -dx -f1`
+        scal=`echo $line | cut -dx -f4`
+        scres=`xrandr | sed -n '/'$scal'/,/connected/p' | grep '*' | sed s/i// | tr -s ' ' | cut -d' ' -f2`
+        scx=`echo $scres | cut -dx -f1`
+        scy=`echo $scres | cut -dx -f2`
+        sx=`echo $line | cut -dx -f2 | sed s/i//`
+        sy=`echo $line | cut -dx -f3 | sed s/i//`
+        args1="$args1 --output $out --scale $(div $scx $sx)x$(div $scy $sy)"
+        unset out scal scres scx scy sx sy
+        done
+        # Apply changes:
+        xrandr $args1
+    fi
+
+    # Rotate touch input if needed:
+    [ "$rotateinput" ] && ( sleep 4; sh /opt/scripts/rotate-touch $rotateinput; ) &
+
+    # If testing then bring back defaults:
+    if [ "$1" = test ]; then
+        # Display notification:
+        PTH=/usr/share/icons/oxygen/22x22; VAR=0; pgs=15
+
+        export KeepSettings='
+        <window decorated="true" title="Kiosk Wizard" icon-name="kiosk" resizable="false" width-request="400">
+        <vbox margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Screen settings</span>"</label></text>
+        <hseparator></hseparator>
+        <text><label>""</label></text>
+        <text yalign="0" xalign="0" wrap="true" width-request="350">
+            <label>Your screen configuration has been changed to the requested settings. Please indicate wheter you wish to keep this configuration. In 15 seconds the display(s) will revert to default settings.</label>
+        </text>
+        <text><label>""</label></text>
+        <hseparator></hseparator>
+        <hbox>
+        <button can-default="true" has-default="false" use-stock="true">
+            <label>Accept Configuration</label>
+            <input file icon="gtk-ok"></input>
+            <action>touch /tmp/screen_settings_exit /tmp/screen_settings_accept</action>
+            <action function="exit">finished</action>
+        </button>
+        <button can-default="true" has-default="true" use-stock="true">
+            <label>Revert to default settings</label>
+            <input file icon="gtk-no"></input>
+            <action>touch /tmp/screen_settings_exit</action>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+        </vbox>
+        </window>
+        '
+        gtkdialog -c -p KeepSettings &
+
+        while [ "$pgs" != 0 ]; do
+            VAR=$(dunstify -p -r $VAR -u low -i $PTH/status/dialog-information.png " Default screen settings will be restored in $pgs seconds ...")
+            sleep 1; pgs=$((pgs-1))
+            [ -e /tmp/screen_settings_exit ] && break
+        done
+
+        dunstify -C $VAR
+        rm -f /tmp/screen_settings_exit
+        [ -e /tmp/screen_settings_accept ] && { rm -f /tmp/screen_settings_accept; exit; }
+
+        # Kill 'Keep settings' window:
+        kill -9 `ps | grep KeepSettings | grep -v grep | cut -d" " -f2 | tr "\n" " "` 2>/dev/null
+
+        # Bring screen defaults:
+        for line in $*; do
+            [ "$line" = test ] || args2="$args2 --output `echo $line | cut -d: -f1` --off";
+        done
+
+        xrandr ${args2}
+        xrandr --auto
+
+        # Set maximum brightness:
+        for x in `ls /sys/class/backlight`; do echo $((`cat /sys/class/backlight/$x/max_brightness`*100/100)) > /sys/class/backlight/$x/brightness; done
+
+        # Rotate touch to normal position:
+        /opt/scripts/rotate-touch normal
+
+    fi
+
+    sh /opt/bin/calimon &
+
+    #/opt/bin/calimon
+
+else
+    echo "Need something to parse"
+fi

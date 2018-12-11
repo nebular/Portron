@@ -1,0 +1,3 @@
+# Enable persistence:
+perfs="full"
+[ "$perfs" ] && . /etc/rc.d/rc.persistence "$perfs"

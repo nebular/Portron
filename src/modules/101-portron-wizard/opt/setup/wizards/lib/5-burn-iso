@@ -1,0 +1,537 @@
+#!/bin/sh
+
+. /opt/bin/loadvalues VAR
+
+BOOTLABEL=Kiosk
+
+value() {
+	grep "^$1=" /tmp/config | head -n1 | cut -d= -f2- | sed 's/[[:blank:]]*$//';
+}
+
+##################################################################################################
+#
+# BURN ISO
+#
+
+
+# show a popup message
+# params icon message
+
+# display critical message $1=icon, $2=message
+toast() {
+    dunstify -r 100 -u critical -i $1 "$2" 2>/dev/null
+}
+
+# display normal message $1=icon, $2=message
+toasti() {
+    dunstify -r 100 "$1"
+}
+
+# display sticky message $1=icon, $2=message
+toastp() {
+    dunstify -r 100 -t 100000 "$1"
+}
+
+cleanup() {
+
+	echo "- cleanup (keeping config)"
+	cd /
+
+	# umount ${NEO_ISOROOT}_SRC
+
+	# rm -rf $NEO_ISOROOT
+	# rm /tmp/config* /tmp/md5sum /tmp/log
+	# rm -rf /opt/scripts/first-run /opt/scripts/wizard
+
+}
+
+# getK2 filename
+getK2sgx() {
+	echo `md5sum ${NEO_ISOROOT}/docs/${SGNFILE} | cut -d" " -f1 | tr "a-z" "A-Z"`
+}
+
+# $1 root iso folder in iso $2 mac addr
+
+writeconfig() {
+
+    [ -d /tmp.config.root ] && rm -rf /tmp/config.root
+
+    mkdir /tmp/config.root
+    . /opt/setup/wizards/lib/6-genconfig "" /tmp/config.root
+    . /opt/setup/network/genconfig.sh /tmp/config.root
+
+    cd /tmp/config.root
+    tar zcvf /tmp/config.tgz .
+    K2="${2}.RLP"
+	echo ${K2} | openssl aes-256-cbc -a -in /tmp/config.tgz -out ${1}/conf/${MAC} -pass stdin 2>/dev/null
+	rm -rf /tmp/config.root
+
+}
+
+prepare_iso() {
+
+	MOUNTEDISO=${NEO_ISOROOT}_SRC
+
+	echo "- Preparing ISO from ${SOURCEDEVICE} into ${NEO_ISOROOT}, mounting in ${MOUNTEDISO}"
+
+	[ -e ${NEO_ISOROOT}/boot/vmlinuz ] || {
+	
+		echo "- not already created"
+        toastp "Preparing ${CFG_PRODUCT} image ..."
+
+		[ -d ${MOUNTEDISO} ] || mkdir ${MOUNTEDISO}
+
+		mount ${SOURCEDEVICE} ${MOUNTEDISO}
+		sync
+
+		echo "- copying everything"
+
+		#cp -aRv ${MOUNTEDISO}/* ${NEO_ISOROOT}/
+
+        mkdir -p ${NEO_ISOROOT}/boot ${NEO_ISOROOT}/docs ${NEO_ISOROOT}/xzm ${NEO_ISOROOT}/conf
+		cp -aRv ${MOUNTEDISO}/boot/* ${NEO_ISOROOT}/boot/
+		cp -aRv ${MOUNTEDISO}/docs/* ${NEO_ISOROOT}/docs/
+		[ -d ${MOUNTEDISO}/conf ] && cp -aRv ${MOUNTEDISO}/conf/* ${NEO_ISOROOT}/conf/
+		cp -aRv ${MOUNTEDISO}/xzm/* ${NEO_ISOROOT}/xzm/
+		cp ${MOUNTEDISO}/*sh ${NEO_ISOROOT}/
+
+        # ln -s ${MOUNTEDISO}/xzm ${NEO_ISOROOT}/
+
+		#umount ${MOUNTEDISO}
+		#rm -r ${MOUNTEDISO}
+
+		# Exit if ISO is not mounted
+		[ -e ${NEO_ISOROOT}/boot/vmlinuz ] || {
+		    toast ${DINFO} "No ISO Source"
+		    cleanup
+		    exit
+		}
+	}
+}
+
+burn_erase() {
+
+	# erase USB
+	echo "- erasing device ..."
+	dd < /dev/zero > /dev/${PARAM_BURNDEVICE} bs=${wsize} count=1 2>/dev/null
+	sync
+	sleep 2
+}
+
+burn_unmount() {
+
+    echo "- unmounting filesystems"
+
+	rm -f /sbin/udev-automount /etc/acpi/default.sh
+	umount -at no,aufs,proc,sysfs,devtmpfs,devpts
+	umount -at no,aufs,proc,sysfs,devtmpfs,devpts
+	umount -at no,aufs,proc,sysfs,devtmpfs,devpts
+}
+
+burn_partition() {
+
+    # patition drive
+  	# AL LORAI con el colega que ha escrito esto neno
+	echo -e "n\np\n1\n\n+${fps}\na\nn\np\n2\n\n+900M\nn\np\n4\n\n\nw\n" | fdisk ${DEV_DEVPART} >/dev/null
+
+    # write boot sector
+    echo "- writing BOOT SECTORS to /dev/${PARAM_BURNDEVICE}"
+
+	dd < ${NEO_GEN_GRUBROOT}/bs/boot.img > /dev/${PARAM_BURNDEVICE} bs=446 count=1
+	dd < ${NEO_GEN_GRUBROOT}/bs/core.img > /dev/${PARAM_BURNDEVICE} bs=512 seek=1
+
+	[ -b ${DEV_DEVPART_EFI} ] || { sleep 2; sync; }
+	[ -b ${DEV_DEVPART_EFI} ] || { sleep 2; sync; }
+	[ -b ${DEV_DEVPART_EFI} ] || {
+
+	    trgt=${PARAM_BURNDEVICEFINAL}99;
+	    toast ${DWARN} "Partitioning failed!"
+	    [ -b /dev/${PARAM_BURNDEVICE} ] && dstat=${PARAM_BURNDEVICE}-yes || dstat=${PARAM_BURNDEVICE}-no;
+
+	}
+}
+
+# efi partition
+burn_partition_efi() {
+
+	echo "- creating EFI partition at ${DEV_DEVPART_EFI}"
+	mkfs.fat -F 12 ${DEV_DEVPART_EFI}
+	fatlabel ${DEV_DEVPART_EFI} Boot
+
+	mkdir /mnt/efi
+	mount ${DEV_DEVPART_EFI} /mnt/efi
+	mkdir -p /mnt/efi/EFI/BOOT
+
+	cp ${NEO_GEN_GRUBROOT}/efi/* /mnt/efi/EFI/BOOT
+
+
+ 	umount /mnt/efi
+
+}
+
+# linux partition
+burn_partition_system() {
+	echo "- creating System partition at ${DEV_DEVPART_SYS}"
+
+	if [ `df -h | grep aufs | tr -s ' ' | cut -d' ' -f5 | sed 's/%//'` -gt 60 ]; then
+
+		lowvfs=yes
+		mkisofs -l -J -joliet-long -R -D -A "${BOOTLABEL}" -V "${BOOTLABEL}"  -no-emul-boot -boot-info-table -boot-load-size 4 -b boot/isolinux/isolinux.bin -c boot/isolinux/isolinux.boot . | dd > ${DEV_DEVPART_SYS} bs=1M
+
+	else
+
+		mkisofs -o ../kiosk.iso -l -J -joliet-long -R -D -A "Kiosk" -V "Kiosk" -no-emul-boot -boot-info-table -boot-load-size 4 -b boot/isolinux/isolinux.bin -c boot/isolinux/isolinux.boot .
+		dd < /mnt/kiosk.iso > ${DEV_DEVPART_SYS} bs=1M
+
+	fi
+
+	sync
+	rm -f /mnt/kiosk.iso
+
+}
+
+burn_partition_persistent() {
+
+	# persistent / swap partition
+	# will need to keep it !!!
+
+    [ -e /var/run/portron.persistence ] && {
+
+        [ -e /tmp/format_device ] && {
+            toast ${DWARN} "Will not format your persistent partition!"
+        }
+
+        # settings were already copied on burn_iso start
+        # no more things to do !
+
+    } || {
+
+
+        if [ -e /tmp/format_device ]; then
+
+            echo "- Persistence partition"
+
+            initpersistence
+            . /opt/setup/wizards/lib/6-genconfig /mnt/pers
+            . /opt/setup/network/genconfig.sh /mnt/pers/${NEO_CFG_ROOT}
+            sync
+            deinitpersistence
+        fi
+    }
+}
+
+burn_ISO() {
+
+	echo "- burn iso"
+
+    [ `echo ${PARAM_BURNDEVICE} | cut -c1-3` = mmc -o `echo ${PARAM_BURNDEVICE} | cut -c1-4` = nvme ] && {
+	    prtt=p
+	    fps=40M
+	    wsize=50M
+	} || {
+	    fps=2M
+	    wsize=10M
+	}
+
+    PARAM_BURNDEVICEFINAL=${PARAM_BURNDEVICE}${prtt}
+    DEV_DEVPART=/dev/${PARAM_BURNDEVICEFINAL}
+    DEV_DEVPART_EFI=${DEV_DEVPART}1
+    DEV_DEVPART_SYS=${DEV_DEVPART}2
+
+    echo "- DEV_EFI ${DEV_DEVPART_EFI}, DEV_SYS ${DEV_DEVPART_SYS}"
+
+    if [ -e /var/run/portron.persistence ]; then
+
+        [ -f ${NEO_CFG_ROOT} ] && {
+            echo "- Writing settings into persistent partition"
+            . /opt/setup/wizards/lib/6-genconfig
+            . /opt/setup/network/genconfig.sh ${NEO_CFG_ROOT}
+            sync
+        }
+
+    fi
+
+	# umount shite
+    burn_unmount
+
+	# erase drive
+	burn_erase
+
+	# patition drive
+	burn_partition
+
+	# efi partition
+	burn_partition_efi
+
+	# linux partition
+	burn_partition_system
+
+    # burn_partition_persistent
+    burn_partition_persistent
+
+	toast ${DOK} "Configuration written. Please reboot the system"
+
+}
+
+initpersistence() {
+
+    DEV_DEVPART_PER=${DEV_DEVPART}4
+
+    [ -b ${DEV_DEVPART_PER} ] && {
+        toastp "Creating persistent partition ..."
+        mkfs.xfs -f ${DEV_DEVPART_PER} >/dev/null
+        mkdir /mnt/pers
+        mount ${DEV_DEVPART_PER} /mnt/pers
+        mkdir -p /mnt/pers/home/guest/.portron
+    } || {
+        echo "- NO PERSISTENCE DEVICE FOUND"
+    }
+}
+
+deinitpersistence() {
+    umount /mnt/pers
+}
+
+checksum() {
+
+	echo "- performing image checksum"
+
+	for x in ${NEO_ISOROOT}/boot/vmlinuz ${NEO_ISOROOT}/boot/initrd.xz ${NEO_ISOROOT}/boot/isolinux/isolinux.cfg ${NEO_ISOROOT}/docs/default.jpg ${NEO_ISOROOT}/xzm/*.xzm; do
+	    md5sum ${x} 2>/dev/null | cut -d" " -f1 >> /tmp/md5sum
+	done
+
+	cat /tmp/md5sum
+
+}
+
+
+getK1() {
+    echo `echo $1 | rev | cut -c1,3,5,7,9,11,13``echo $1 | cut -c1,3,5,7,9,11,13`XzY1
+}
+
+getK2() {
+	echo `md5sum ${NEO_ISOROOT}/docs/md5 | cut -d" " -f1 | tr "a-z" "A-Z"`ZyX9
+}
+
+signimage() {
+
+    echo "Signing Image ..."
+
+	# mac=`grep ^mac= /tmp/log/md5 2>/dev/null | head -n1 | cut -d= -f2-`
+    # mac=`ifconfig -a | grep HWaddr | head -n1 | cut -s -d: -f3- | tr ':' '-'`
+
+	# computa la clave para encriptar el config
+	#
+	# 1) invierte y trocea la MAC
+	# 2) Encripta con esa clave K1 el fichero md5sum que tiene los md5s de cada fichero
+	# 3) lo graba como /docs/md5
+
+    K1=$(getK1 ${MAC})
+    echo "- enc K1 is ${K1}"
+    echo ${K1} | openssl aes-256-cbc -a -in /tmp/md5sum -out ${NEO_ISOROOT}/docs/md5 -pass stdin 2>/dev/null
+
+	#echo `echo ${mac} | rev | cut -c1,3,5,7,9,11,13``echo ${mac} | cut -c1,3,5,7,9,11,13`XzY1 | openssl aes-256-cbc -a -in /tmp/md5sum -out ${NEO_ISOROOT}/docs/md5 -pass stdin 2>/dev/null
+
+	# encripta la configuracion
+    #
+	# 4) Hace el MD5sum del fichero anterior y lo transforma "K2"
+	# 5) Encripta con K2 el config
+	# 6) lo graba como /docs/config
+
+	# K2=`md5sum ${NEO_ISOROOT}/docs/md5 | cut -d" " -f1 | tr "a-z" "A-Z"`ZyX9
+    # echo "- enc K2 is ${K2}"
+
+	# echo ${K2} | openssl aes-256-cbc -a -in /tmp/config -out ${NEO_ISOROOT}/docs/config -pass stdin 2>/dev/null
+
+    # crea kiosk.sgn con las siguientes partes:
+    #
+    # 1) La encriptacion de /docs/md5 con K1
+	# 2) La siguiente ristra pre-encriptada que sabe dios que conyo es
+	# 3) La encriptacion de /tmp/config con K2
+
+	# cp ${NEO_ISOROOT}/docs/md5 ${NEO_ISOROOT}/docs/config.sgx
+
+	mv -f ${NEO_ISOROOT}/docs/md5 ${NEO_ISOROOT}/docs/${NEO_SGNFILE}
+
+    writeconfig ${NEO_ISOROOT} ${MAC}
+
+    # wtf is this? how is it encrypted? just a separator or a watermark?
+	# echo "clwrosKXGt0bChL2njIXjANuvHRbWKPeTbkN3lVlWu/ZB6TCPO54F0/LKk2H+lkk" >> ${NEO_ISOROOT}/docs/kiosk.sgn
+
+    #
+    # por tanto para darle la vuelta
+    #
+    # 1) parteMd5 = substr(0,clrwo...)
+    # 2) Obtiene K1 a partir de la MAC
+    # 3) docsMD5 = unencrypt(parte1, K1)
+
+    # 4) parteConfig = substr(clrwo..., end)
+    # 5) Obtiene K2 = f(md5sum(parteMd5))
+    # 6) Desentripta parteConfig
+    #
+
+	#cat ${NEO_ISOROOT}/docs/config >> ${NEO_ISOROOT}/docs/kiosk.sgn
+	#rm -f ${NEO_ISOROOT}/docs/config ${NEO_ISOROOT}/docs/first_run
+
+}
+
+burnimage() {
+
+	devboot=`lsblk -o NAME,TYPE,MODEL,SIZE /dev/${PARAM_BURNDEVICE} 2>&1 | egrep -v "NAME|loop|part|rom" | tr -s " " | tr " " "-"`
+
+	[ -e /tmp/zero_device ] && {
+	    toastp "Erasing device - please be patient ..."
+	    dd < /dev/zero > /dev/${PARAM_BURNDEVICE} bs=1M 2>/dev/null;
+	}
+
+	isize=$((`du ${NEO_ISOROOT} | tail -n1 | cut -d/ -f1`/1024+3))
+
+	[ "$isize" -gt 900 ] && {
+	    toast ${DERROR} "ISO size: ${isize} MB is larger than system partition size: 900 MB. We cant continue - skipping installation."
+        cleanup
+	    exit
+	}
+
+	toastp "Installing ${CFG_PRODUCT} ... this may take a while ..."
+	sync
+
+	echo 3 > /proc/sys/vm/drop_caches
+	burn_ISO
+	sync
+
+
+	toast ${DOK} "${CFG_PRODUCT} installed. System will reboot in 5 seconds ..."
+
+
+	for x in /dev/sr*; do eject -s ${x}; done
+
+	cleanup
+	sleep 7
+
+	init 6
+
+}
+
+saveisoto() {
+
+    destination=$1/kiosk.iso
+
+	[ -e boot/isolinux/efi/efiboot.img ] && {
+	    efi1="-eltorito-alt-boot -eltorito-platform 0xEF -eltorito-boot boot/isolinux/efi/efiboot.img -no-emul-boot"
+	    efi2="-u"
+	}
+
+	toastp "Saving ${CFG_PRODUCT} ISO  - this may take a while ..."
+
+	mkisofs -o ${destination} -l -J -joliet-long -R -D -A "Kiosk" -V "Kiosk" -no-emul-boot -boot-info-table -boot-load-size 4 -b boot/isolinux/isolinux.bin -c boot/isolinux/isolinux.boot ${efi1} . >/dev/null 2>&1
+	isohybrid ${efi2} ${destination}
+
+	if [ $? -eq 0 ]; then
+		sync
+		umount /media 2>/dev/null
+		toast ${DOK} "${CFG_PRODUCT} ISO was created successfully and saved as $PARAM_ISO_OUTPATH.\nSystem will shutdown in 10 seconds ..."
+	else
+		toast ${DERROR} "${CFG_PRODUCT} ISO was not saved as $PARAM_ISO_OUTPATH.\nSuspecting unsupported filesystem, not enough space or read only media.\nSystem will shutdown in 30 seconds ..."
+	fi
+
+	cleanup
+
+}
+
+
+saveiso() {
+    saveisoto ${PARAM_ISO_OUTPATH}
+    sleep 30
+    init 0
+}
+
+saveisodefault() {
+    saveisoto /mnt
+}
+
+setupgrub() {
+
+	# Erase First Run Flag from GRUB
+
+	ISOLINUX=${NEO_ISOROOT}/boot/isolinux
+	echo "- setting up grub and isolinux from ${ISOLINUX}"
+
+	[ -e ${ISOLINUX} ] || {
+	    toast ${DERROR} "No ISOLINUX Source"
+	    cleanup
+	    exit
+	}
+
+	for x in ${PARAM_KERNELPARAMS}; do kpar="${kpar} ${x}"; done
+
+	kpar=`echo ${kpar} | sed "s/^ .//"`
+
+	grep -q '\^' ${ISOLINUX}/isolinux.cfg && {
+	    oldp=`egrep -o " \^[^\^]+" ${ISOLINUX}/isolinux.cfg | sed s/^..//`
+	    sed -i "s|\^$oldp\^|\^ $kpar \^|" ${ISOLINUX}/isolinux.cfg;
+	} || sed -i "s|quiet|quiet \^ ${kpar} \^|" ${ISOLINUX}/isolinux.cfg
+
+	grep -q '\^' ${ISOLINUX}/grub.cfg && {
+	    oldp=`egrep -o " \^[^\^]+" ${ISOLINUX}/grub.cfg | sed s/^..//`
+	    sed -i "s|\^$oldp\^|\^ $kpar \^|" ${ISOLINUX}/grub.cfg;
+	} || sed -i "s|quiet|quiet \^ ${kpar} \^|" ${ISOLINUX}/grub.cfg
+
+	while [ "$(pidof wget)" ]; do
+	    sleep 1
+	done
+
+}
+
+##################################################################################################
+
+BOOTDEVICE=${VAR_BOOT}
+SOURCEDEVICE=${BOOTDEVICE}
+[ ${BOOTDEVICE}=sr0 ] || SOURCEDEVICE=${BOOTDEVICE}1
+
+PARAM_BURNDEVICE=`value burn_dev`
+PARAM_ISO_OUTPATH=`value save_path`
+PARAM_KERNELPARAMS=`value kernel_parameters`
+
+echo "Burn Image"
+echo "-----------------------------"
+echo "- BURN DEVICE ${PARAM_BURNDEVICE}"
+echo "- BOOT DEVICE ${BOOTDEVICE}"
+echo "- ISO SOURCE ${SOURCEDEVICE}"
+
+echo "- save iso to ${PARAM_ISO_OUTPATH}"
+echo "- ISO PREPARATION IMAGE (local) ${NEO_ISOROOT}"
+
+[ -e /tmp/config ] || {
+    toast ${DWARN} "No config to update"
+    exit
+}
+
+[ "${PARAM_BURNDEVICE}" = sr0 ] && {
+    toast ${DERROR} "Writing to optical media is not supported"
+    cleanup
+    exit
+}
+
+prepare_iso
+
+setupgrub
+
+checksum
+
+signimage
+
+cd ${NEO_ISOROOT}
+
+if [ "${PARAM_BURNDEVICE}" ]; then
+
+	burnimage
+
+elif [ "${PARAM_ISO_OUTPATH}" ]; then
+
+	saveiso
+
+else
+
+	saveisodefault
+
+fi

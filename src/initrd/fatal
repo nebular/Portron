@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+# Failed boot handler.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+echo && echo
+echo "[1;36m""Error: Kiosk data not found - startup cannot continue.
+If you are booting from writable media then please make sure that
+you have burned the ISO using [1;33m'Win32DiskImager'[1;36m or [1;33m'dd'[1;36m utilities:
+http://porteus-kiosk.org/download.html#usb
+
+If you are booting Kiosk from CD rather than usb drive
+then this failure is likely caused by a corrupted download
+or bad burn. Please verify that the MD5 sum of your ISO matches the
+MD5 sum for this ISO on our download page, and try burning the CD again.
+
+Press 'd' to display debug info or wait 30 seconds for a PC shutdown.""[0m"
+
+(
+SLEEP=30
+while [ "$SLEEP" -gt 0 ]; do
+    if test -e /tmp/debug; then
+	rm -f /sbin/poweroff
+    else
+	echo -en "[1;33m""$SLEEP \r""[0m"
+    fi
+    sleep 1
+    SLEEP=$((SLEEP-1))
+done
+poweroff -f 2>/dev/null
+) &
+
+while true; do
+read -s -n1 ans
+if [ "$ans" = "d" ]; then
+echo >/tmp/debug
+echo; echo "[1;36m""Please copy debugging data printed below and report this issue
+to support@porteus-kiosk.org
+
+Press Ctrl+Alt+Del to reboot.""[0m"
+echo; echo "[1;33m""DEBUGGING DATA:""[0m"; echo
+echo "[1m""booting parameters:"[0m" `cat /proc/cmdline`"
+echo "[1m""kernel version:"[0m" `uname -r`"
+echo "[1m""kernel modules version:"[0m" `ls /lib/modules 2>/dev/null`"
+echo "[1m""available network interfaces:"[0m" `ls /sys/class/net`"
+stty echo; echo -e "\e[?25h"; sh
+fi
+done

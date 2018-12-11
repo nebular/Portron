@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+/opt/bin/httpd -p 8080 -h /opt/www

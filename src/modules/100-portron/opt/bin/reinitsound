@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# reinit soundcard, call it if config values change
+
+. /opt/bin/loadvalues CFG
+. /etc/rc.d/rc.soundcard
+

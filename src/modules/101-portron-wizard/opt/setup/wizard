@@ -1,0 +1,19 @@
+#!/bin/sh
+
+#
+# start appropriate wizard
+#
+# If theres a config, start runtime configurator
+# else installer
+#
+
+. /etc/profile.d/portron
+
+cd /opt/setup
+
+[ -d ${NEO_CFG_ROOT} ] && {
+    wizard-config
+} || {
+    wizard-install
+}
+

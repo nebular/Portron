@@ -1,0 +1,5 @@
+@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+#minimize-button, #restore-button, #close-button, #PanelUI-button, #toolbar-menubar, #downloads-button, #bookmarks-menu-button { display: none !important; }
+#zoom-controls > separator, #zoom-controls > #zoom-reset-button { visibility: collapse !important; }
+#navigator-toolbox[inFullscreen] toolbar:not([collapsed="true"]) { visibility: visible !important; }
+#urlbar .textbox-contextmenu, #searchbar .textbox-contextmenu, #placesContext, #autohide-context, #toolbar-context-menu, #tabContextMenu, #contentAreaContextMenu { display: none !important; }

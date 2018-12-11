@@ -1,0 +1,11 @@
+Portron comes with no guarantees or warranties of any sorts,
+either written or implied.
+
+Portron is released under GPL. Check GNU_GPL file for more details.
+Individual packages in the distribution may come with their own licences.
+
+PorTron is based on Porteus-Kiosk distribution, http://porteus-kiosk.org.
+Your packaged electron application will run under a tweaked Porteus Kiosk Linux
+distribution. You should check the licenses thath might apply.
+
+

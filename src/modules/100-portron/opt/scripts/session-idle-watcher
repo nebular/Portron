@@ -1,0 +1,51 @@
+#!/bin/sh
+#
+# Session idle watcher.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Variables:
+PTH=/usr/share/icons/oxygen/22x22
+SIDLE=`grep ^SIDLE= /etc/xdg/openbox/autostart | cut -d= -f2`
+[ -x /opt/google/chrome/chrome ] && browser=chrome || browser=firefox
+
+# Force restarting of the session every X minutes if user activity is not detected:
+#forced=yes
+
+# Functions:
+fix_screensaver() {
+# Pull screensaver window on top so its not covered by restarted browser when in fulscreen:
+(
+SLEEP=30
+while [ `wmctrl -l | wc -l` = 1 -a $SLEEP -gt 0 ]; do sleep 0.5; let SLEEP=SLEEP-1; done
+wmctrl -a screensaver
+) &
+}
+
+# Do not restart until first activity happens (unless forced):
+if [ "$forced" ]; then
+    # Toggle tabs feature generates input event which breaks idle time, we need to force restarting the session no matter of the idle time:
+    [ `grep ^ttabs= /etc/xdg/openbox/autostart | cut -d= -f2` ] && ( while true; do sleep $SIDLE; kill `ps | grep "guest.*$browser" | tr -s ' ' | sed -e 's/^ //g' | cut -d' ' -f1`; fix_screensaver; done; ) &
+else
+    sleep $SIDLE; sleep 5; restart=no
+fi
+
+while [ 1 ]; do
+    idle=$(echo `xprintidle` | sed s/...$//); [ "$idle" ] || idle=1
+    if [ $idle -gt $SIDLE ]; then
+	if [ "$restart" = yes ]; then
+	    [ "`pidof session-manager`" ] || dunstify -u normal -i $PTH/status/dialog-information.png "No activity detected in last $(($SIDLE/60)) minutes. Session will be restarted in 5 seconds ..."
+	fi
+	sleep 5
+	idle=$(echo `xprintidle` | sed s/...$//); [ "$idle" ] || idle=1
+	if [ $idle -gt $SIDLE ]; then
+	    [ "$restart" = yes ] && { [ "`pidof tint2`" ] && openbox --exit; kill `ps | grep "guest.*$browser" | tr -s ' ' | sed -e 's/^ //g' | cut -d' ' -f1`; fix_screensaver; [ "$forced" ] && xdotool key Menu; sleep $SIDLE; restart=no; } || sleep $SIDLE
+	else
+	    [ "$restart" = yes ] && dunstify -u normal -i $PTH/status/dialog-information.png "Detected user activity - session restart cancelled"
+	    sleep $(($SIDLE-$idle))
+	    restart=yes
+	fi
+    else
+	sleep $(($SIDLE-$idle))
+	restart=yes
+    fi
+done

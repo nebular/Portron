@@ -1,0 +1,37 @@
+#!/bin/sh
+
+. /opt/bin/loadvalues CFG
+cd /opt/setup
+
+
+[ "${CFG_PRODUCT}" ] && {
+
+    if [ ! -z "`pidof ${CFG_PRODUCT}`" ]; then
+
+        # kill running application
+        echo "- kill running application"
+
+        touch /var/run/portron.abort
+        killall ${CFG_PRODUCT}
+        sleep 3
+
+    fi
+}
+
+pwd
+sh ${CMD_WIZARD_INSTALL}
+
+[ -f /tmp/wizard-continue ] && {
+
+    rm -f /tmp/wizard-continue
+    . wizards/lib/5-burn-iso
+
+} || {
+
+    [ $1 = "force" ] && {
+        dunstify "cancelled installation. system will shutdown!"
+        sleep 2
+        init 0
+    }
+
+}

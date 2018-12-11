@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ "$1" ]; then
+    find * | cpio -H newc -o | xz --check=crc32 --x86 --lzma2 > $1
+else
+    echo "USAGE: From initrd root, $0 destination.xz"
+fi

@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.freedesktop.Notifications
+Exec=/usr/bin/dunst -config /usr/share/dunst/dunstrc

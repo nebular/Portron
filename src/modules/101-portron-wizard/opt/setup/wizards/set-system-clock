@@ -1,0 +1,179 @@
+#!/bin/bash
+#
+# Set system clock.
+# Author: Ahau <http://porteus.org>
+# Modified by T.Jokiel <http://porteus-kiosk.org>
+
+## Variables
+TZSET="/tmp/tzset_$$"
+
+mkdir -p $TZSET
+
+## Setup info for date/time comboboxes
+echo "01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31" | tr " " "\n" >> $TZSET/date_date
+echo "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec" | tr " " "\n" >> $TZSET/date_month
+echo `date +%Y` > $TZSET/date_year
+echo "2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025" | tr " " "\n" >> $TZSET/date_year
+echo "00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23" | tr " " "\n" >> $TZSET/date_hour
+echo "00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59" | tr " " "\n" >> $TZSET/date_minute
+
+# Get current date/time
+export cur_date_date=`date +%d`  && echo new date_date is $cur_date_date >> $TZSET/dump
+export cur_date_month=`date +%b` && echo new date_month is $cur_date_month >> $TZSET/dump
+export cur_date_year=`date +%Y` && echo new date_year is $cur_date_year >> $TZSET/dump
+export cur_date_hour=`date +%H` && echo new date_hour is $cur_date_hour >> $TZSET/dump
+export cur_date_minute=`date +%M` && echo new date_minute is $cur_date_minute >> $TZSET/dump
+
+export TIMECONFIG='
+<window decorated="true" window_position="1" title="User input" icon-name="clock" allow-shrink="false" width-request="640" height-request="380">
+<vbox>
+    <frame Set date and time for this PC>
+    <hbox>
+<text use-markup="true" xalign="0" wrap="true" width-request="590"><label>"
+Please enter the correct date and time below then click '"'Apply'"' to set the system clock.
+"</label></text>
+    </hbox>
+	<hseparator></hseparator>
+	<vbox>
+	    <text use-markup="true" selectable="true" can-focus="no" width-request="175">
+	    <label>""</label></text>
+	</vbox>
+
+    <hbox>
+    <text use-markup="true" xalign="0" wrap="true" width-request="100"><label>"
+    Date:
+    "</label></text>
+    <comboboxtext focus-on-click="false" width-request="100">
+	<variable>DATE_DATE</variable>
+	<input file>'$TZSET/date_date'</input>
+	<default>'`echo $cur_date_date`'</default>
+	<action signal="changed">echo new date_date is $DATE_DATE >> '$TZSET/dump'</action>
+	<action signal="changed">enable:SYSUPDATE</action>
+    </comboboxtext>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="25">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    <comboboxtext focus-on-click="false" width-request="100">
+	<variable>DATE_MONTH</variable>
+	<input file>'$TZSET/date_month'</input>
+	<default>'`echo $cur_date_month`'</default>
+	<action signal="changed">echo new date_month is $DATE_MONTH >> '$TZSET/dump'</action>
+	<action signal="changed">enable:SYSUPDATE</action>
+    </comboboxtext>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="25">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    <comboboxtext focus-on-click="false" width-request="100">
+	<variable>DATE_YEAR</variable>
+	<input file>'$TZSET/date_year'</input>
+	<default>'`echo $cur_date_year`'</default>
+	<action signal="changed">echo new date_year is $DATE_YEAR >> '$TZSET/dump'</action>
+	<action signal="changed">enable:SYSUPDATE</action>
+    </comboboxtext>
+
+    <hbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="115">
+	<label>""</label></text>
+    </hbox>
+
+    </hbox>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="175">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="175">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    <hbox>
+    <text use-markup="true" xalign="0" wrap="true" width-request="100"><label>"
+    Time:
+    "</label></text>
+
+    <comboboxtext focus-on-click="false" width-request="100">
+	<variable>DATE_HOUR</variable>
+	<input file>'$TZSET/date_hour'</input>
+	<default>'`echo $cur_date_hour`'</default>
+	<action signal="changed">echo new date_hour is $DATE_HOUR >> '$TZSET/dump'</action>
+	<action signal="changed">enable:SYSUPDATE</action>
+    </comboboxtext>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="25">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    <comboboxtext focus-on-click="false" width-request="100">
+	<variable>DATE_MINUTE</variable>
+	<input file>'$TZSET/date_minute'</input>
+	<default>'`echo $cur_date_minute`'</default>
+	<action signal="changed">echo new date_minute is $DATE_MINUTE >> '$TZSET/dump'</action>
+	<action signal="changed">enable:SYSUPDATE</action>
+    </comboboxtext>
+
+    <hbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="250">
+	<label>""</label></text>
+    </hbox>
+
+    </hbox>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="175">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    <vbox>
+	<text use-markup="true" selectable="true" can-focus="no" width-request="175">
+	<label>""</label>
+	</text>
+    </vbox>
+
+    </frame>
+     <hbox>
+        <button cancel></button>
+
+        <button tooltip-text="Apply these changes to the current session and update the system clock to make these changes persistent">
+	<variable>SYSUPDATE</variable>
+		<sensitive>disabled</sensitive>
+		<label>Apply</label>
+		<input file stock="gtk-apply"></input>
+        </button>
+
+  </hbox>
+
+</vbox>
+
+<action signal="hide">exit:Cancel</action>
+</window>
+'
+gtkdialog -p TIMECONFIG > $TZSET/gtk_dump
+
+## Did user cancel ?
+if [ ! `egrep -o "Cancel|abort" $TZSET/gtk_dump` ]; then
+    newdate=`cat $TZSET/dump |grep "new date_date"|tail -n 1 |sed 's/new date_date is //g'`
+    newmonth=`cat $TZSET/dump |grep "new date_month"|tail -n 1 |sed 's/new date_month is //g'`
+    newyear=`cat $TZSET/dump |grep "new date_year"|tail -n 1 |sed 's/new date_year is //g'`
+    newhour=`cat $TZSET/dump |grep "new date_hour"|tail -n 1 |sed 's/new date_hour is //g'`
+    newminute=`cat $TZSET/dump |grep "new date_minute"|tail -n 1 |sed 's/new date_minute is //g'`
+
+    date -s "$newdate $newmonth $newyear $newhour:$newminute" >/dev/null
+    hwclock --utc -w
+fi
+
+rm -rf $TZSET

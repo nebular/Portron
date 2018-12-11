@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Start battery polling:
+battery=`ls -1 /sys/class/power_supply/*/capacity 2>/dev/null | head -n1 | cut -d/ -f5`
+[ "$battery" ] && sh /opt/scripts/battery_polling ${battery} &

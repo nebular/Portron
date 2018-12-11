@@ -1,0 +1,28 @@
+#!/bin/sh
+. vars
+
+cd /opt/setup
+
+####################################################################################################################################
+#
+# KIOSK WIZARD
+#
+[ -d ${NEO_CFG_ROOT} ] && {
+    sh ${CMD_WIZARD_CONFIG}
+    [ -f /tmp/wizard-continue ] && {
+
+        rm -f /tmp/wizard-continue
+
+        . wizards/lib/6-genconfig
+        . wizards/lib/7-synconfig
+
+        /opt/bin/reinitsound
+
+        sync
+#       sleep 5
+#       reboot
+    }
+} || {
+    echo "- wizard not available for live environment"
+}
+

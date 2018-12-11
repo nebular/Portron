@@ -1,0 +1,116 @@
+#!/bin/sh
+#
+# Setup persistent folders.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+STORAGE=/opt/storage
+. /opt/bin/loadvalues VAR
+
+reformat() {
+    mkfs.xfs -f "$1" >/dev/null
+    mount "$1" ${STORAGE}
+}
+
+# repartition $1 = partition $2 = bdev
+
+repartition() {
+
+    if [ ! -b "$1" -a "$1" ]; then
+        echo -e "n\np\n4\n\n\nw\n" | fdisk ${2} && {
+            sync
+            sleep 3
+            mkfs.xfs -f "$1" >/dev/null
+        }
+    fi
+}
+
+# Mount writable partition (DO NOT reformat if mounting fails):
+# parameters $1 = target partition
+
+mountpartition() {
+    mkdir -p ${STORAGE}
+    grep -q -w ${STORAGE} /proc/mounts || mount "$1" ${STORAGE}
+}
+
+nopersistence() {
+    echo "- No Persistence: ${1}"
+
+    mkdir -p /home/guest/.portron
+    rm -f /var/run/portron.persistence
+
+}
+
+# Variables:
+
+bdev=${VAR_BOOT}
+realbdev=${bdev}
+if echo ${bdev} | grep -q "2$"; then
+    if [ `echo ${bdev} | cut -c6-8` = mmc -o `echo ${bdev} | cut -c6-9` = nvme ]; then
+    	bdev=`echo ${bdev} | sed 's/p2$//g'`
+    else
+	    bdev=`echo ${bdev} | sed 's/2$//g'`
+    fi
+fi
+
+. /etc/profile.d/variables.sh
+
+# Keep devices up:
+rm -f ${scripts}/power_saver
+
+# Skip if booting from optical media or over PXE:
+if [ "$bdev" != "/dev/sr0" -a "$bdev" != "/dev/net" ]; then
+
+    # Mount writable partition:
+    [ `echo ${bdev} | cut -c6-8` = mmc -o `echo ${bdev} | cut -c6-9` = nvme ] && prt="p" || prt=""
+
+    trg=${bdev}${prt}4
+
+    if [ -b "$trg" -a "$trg" ]; then
+
+        # Mount writable partition on opt/STORAGE
+        mountpartition "$trg"
+
+        grep -q -w ${STORAGE} /proc/mounts && {
+
+            # Persistent /home folder:
+            if [ "`echo $* | grep -w full`" ]; then
+
+                cp -a /home ${STORAGE}
+                grep -q -w /home /proc/mounts || mount -o bind ${STORAGE}/home /home
+
+            fi
+
+            # Persistent folders (be careful with this as things may break when persistent):
+            for fold in `echo $* | sed 's_full__'`; do
+                test -d "${STORAGE}${fold}" || {
+                    mkdir -p "${STORAGE}${fold}"
+                    cp -a ${fold}/* ${STORAGE}${fold}
+                    cp -a ${fold}/.??* ${STORAGE}${fold}
+                    sync
+                }
+
+                grep -q -w ${fold} /proc/mounts || mount -o bind ${STORAGE}${fold} ${fold}
+            done
+
+            touch /var/run/portron.persistence
+            echo "- Persistence available at ${trg}"
+            
+        } || {
+
+            nopersistence "unable to mount partition"
+
+        }
+
+    else
+
+        nopersistence "block device not found"
+
+    fi
+
+else
+
+    # block device not found
+    nopersistence "no CDROM support"
+
+fi
+

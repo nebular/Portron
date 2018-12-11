@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# Payback device:
+[ "${CFG_SOUND_CARD}" ] && playback=${CFG_SOUND_CARD} || playback=default
+
+plc=`echo ${playback} | cut -d. -f1`
+pld=`echo ${playback} | cut -d. -f2`
+
+# Capture device:
+[ "${CFG_SOUND_MIC}" ] && microphone=${CFG_SOUND_MIC} || microphone=default
+
+mic=`echo ${microphone} | cut -d. -f1`
+mid=`echo ${microphone} | cut -d. -f2`
+
+if [ "$microphone" != default ]; then
+    [ "$playback" = default ] && { plc=`aplay -l | grep ^card | head -n1 | cut -d: -f1 | cut -d" " -f2`; pld=`aplay -l | grep ^card | head -n1 | rev | cut -d: -f2 | cut -d" " -f1 | rev`; }
+    echo 'pcm.!default {
+    type asym
+    playback.pcm {
+        type plug
+        slave.pcm "hw:'${plc}','${pld}'"
+        }
+    capture.pcm {
+        type plug
+        slave.pcm "hw:'${mic}','${mid}'"
+        }
+    }' > /etc/asound.conf
+elif [ "$playback" != default ]; then
+    echo "defaults.pcm.card $plc
+    defaults.pcm.device $pld
+    defaults.ctl.card $plc" > /etc/asound.conf
+fi
+
+echo "- card ${plc} device ${pld} mic ${mic}"
+
+# Unmute channels, set volume level and enable microphone:
+level="${CFG_SOUND_VOLUME}"
+
+[ "${level}" ] || level="90%"
+
+amixer -c ${plc} | grep \', | egrep -v "Mic|Boost" | cut -d"'" -f2 | while read line; do
+    echo ${line}
+    amixer -c ${plc} set "$line" ${level} unmute
+done
+
+amixer -c ${plc} | grep \', | grep Capture | cut -d" " -f4- | while read line; do
+    echo ${line}
+    amixer -c ${plc} set "$line" cap
+done

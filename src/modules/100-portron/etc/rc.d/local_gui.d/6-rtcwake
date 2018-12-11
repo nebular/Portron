@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# RTC wake:
+[ -x /opt/scripts/rtc-wake ] && /opt/scripts/rtc-wake &

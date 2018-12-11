@@ -1,0 +1,1341 @@
+#!/bin/sh
+
+. /etc/profile.d/portron
+
+# Portron Install Wizard
+# A wizard for settings and features in Portron Disribution
+#
+# Portions (c) Rodolfo Lopez Pintor 2018 rlp@nebular.tv
+#
+# Derived work from:
+#
+# Kiosk Wizard - A wizard for settings and features in Porteus Kiosk
+# Copyright (C) 2014-2020 Jay Flood (aka brokenman)
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# Project Page: http://porteus-kiosk.org
+# Wizard functionality extended by Tomasz Jokiel <http://porteus-kiosk.org>
+
+## ====================================================================
+## variables
+## ====================================================================
+
+## These will need changing
+## Default wallpaper link
+
+WALLPAPER=http://porteus-kiosk.org/public/wallpapers/sample.jpg
+
+SCRIPT="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"
+SPATH=${SCRIPT%/*}
+
+BUTNEXT=${OXYGEN}/16x16/actions/go-next.png
+BUTPREV=${OXYGEN}/16x16/actions/go-previous.png
+
+AREAWIDTH=900
+AREAHALF=450
+AREAHEIGHT=600
+WINWIDTH=940
+WINHEIGHT=680
+HELPWIDTH=690
+
+## Backup network settings
+if [ -e /tmp/net-conf ]; then
+    cp -a /tmp/net-conf /tmp/config
+else
+    cp -a /tmp/config /tmp/net-conf
+fi
+
+## Create temporary working directory
+rm -rf /tmp/kwiz.* /tmp/wizard-lock 2>/dev/null
+export TMPDIR=/tmp/kwiz.$$
+mkdir -p ${TMPDIR}
+if [ $? -ne 0 ]; then
+	TMPFAIL=`gettext "Failed to create temporary directory. Fatal."`
+	xmessage "$TMPFAIL" || exit 1
+	exit
+fi
+
+## We need to export these variables so they are available to gtkdialog
+export CONF=/tmp/config
+export ICONS=/usr/share/pixmaps
+export PCID=`grep ^ID: /etc/version | cut -d" " -f2`
+
+## ====================================================================
+## Functions
+## ====================================================================
+cleanup(){
+    rm -rf ${TMPDIR}
+    exit
+}
+
+
+[ -e /var/run/portron.kp.dispers ] && {
+    # persistence disabled
+    rm ${TMPDIR}/persistence.tmp
+    unset opt_pers
+
+} || {
+
+    [ -e /var/run/portron.kp.reqpers ] && {
+
+        # persistence required
+        echo "persistence=full" > ${TMPDIR}/persistence.tmp
+        unset opt_pers
+
+    } || {
+
+        # persistence optional
+        opt_pers='
+######### PERSISTENCE
+        <frame Persistence level>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/persistence-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Clear browser data when application or session is restarted">
+                        <label>None</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/persistence.tmp</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Persist browser data when application or session is restarted">
+                        <label>Session</label>
+                        <default>false</default>
+                        <action>if true echo "persistence=session" > '${TMPDIR}'/persistence.tmp</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Persist browser data when application or session is restarted and also when system is rebooted">
+                        <label>Full</label>
+                        <default>false</default>
+                        <action>if true echo "persistence=full" > '${TMPDIR}'/persistence.tmp</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'" use-markup="true">
+                    <label>"Select custom persistence level for the guest'\''s home folder. Enable '"'Session'"' option to keep user data persistent when browser or session are restarted. Enable '"'Full'"' option to keep user data persistent all the time - even when system is rebooted or powered down. Useful mostly with private mode disabled for the browser.		<span weight='"'bold'"' color='"'red'"'>NOTE:</span> when persistence is set to '"'Full'"' then power cut may corrupt persistent data causing persistent partition to be reformatted during next system boot. Make sure that kiosk is powered down properly to prevent wiping the data. Use with caution."</label>
+                </text>
+            </hbox>
+        </frame>'
+    }
+}
+
+## ====================================================================
+## Main dialog
+## ====================================================================
+
+## Trap exits
+trap 'cleanup' SIGHUP SIGINT SIGTERM
+
+################# Setup required files
+export IMAGEONE="${OXYGEN}/22x22/actions/gtk-no.png"
+export IMAGETWO="${OXYGEN}/22x22/actions/gtk-ok.png"
+export IMGPASS=${TMPDIR}/img.png
+cp -L ${IMAGEONE} ${TMPDIR}/img.png
+
+## These monitor files are being watched by radiobuttons
+## We use these so other widgets can interact with radiobuttons
+## by echoing into the monitor file
+
+echo true > ${TMPDIR}/icmpDisable.mon
+echo true > ${TMPDIR}/pmanDis.mon
+echo true > ${TMPDIR}/toggleDis.mon
+echo true > ${TMPDIR}/KbdPri.mon
+echo true > ${TMPDIR}/KbdSec.mon
+echo true > ${TMPDIR}/Num.mon
+echo true > ${TMPDIR}/Mouse.mon
+echo true > ${TMPDIR}/RMC.mon
+
+echo true > ${TMPDIR}/ssetDisable.mon
+echo true > ${TMPDIR}/srotDisable.mon
+
+echo true > ${TMPDIR}/disablevnc.mon
+echo true > ${TMPDIR}/disablessh.mon
+
+echo false > ${TMPDIR}/enablevnc.mon
+echo false > ${TMPDIR}/enablessh.mon
+echo true > ${TMPDIR}/enasbut.mon
+echo false > ${TMPDIR}/dissbut.mon
+
+
+## Set some text files that should exist before the main
+## gtkdialog is rendered
+
+echo "domain.com:443" > ${TMPDIR}/server.txt
+echo "automatic" > ${TMPDIR}/client.txt
+echo "${CFG_PRODUCT}" > ${TMPDIR}/hostname.txt
+echo "1024" > ${TMPDIR}/swap.txt
+echo "5" > ${TMPDIR}/toggle.txt
+echo "5" > ${TMPDIR}/refreshp.txt
+echo "10" > ${TMPDIR}/dpms.txt
+echo "some password" > ${TMPDIR}/sessionp.txt
+echo "dunstify -u low 'command test'" > ${TMPDIR}/rcommand.txt
+echo "$WALLPAPER" > ${TMPDIR}/wallpaper.txt
+echo "acpi=force reboot=pci,force" > ${TMPDIR}/kparam.txt
+
+#echo "root_password=toor" > ${TMPDIR}/root.tmp
+
+## Default minutes in case user chooses suspend to RAM (mem)
+echo 10 > ${TMPDIR}/idle-minutes.txt
+
+echo 22 > ${TMPDIR}/sshport.txt
+
+## echo 0 (first main page) into the page monitor file
+echo 0 > ${TMPDIR}/.knetPage
+
+# Setup system version:
+echo false > ${TMPDIR}/pmodeDis.mon; echo true > ${TMPDIR}/pmodeEn.mon;
+
+## Preserve configuration files - required for testing
+#if [ -e /tmp/log/md5 ]; then
+#    cp -a /etc/hosts /etc/hosts-org
+#    cp -a /home/guest /opt/scripts
+#fi
+
+# General quirks:
+echo false > ${TMPDIR}/generalq.mon
+(
+sleep 1
+echo true > ${TMPDIR}/generalq.mon
+) &
+
+# Primary kbd layout quirk:
+echo false > ${TMPDIR}/pkbdl.mon
+(
+sleep 1
+grep -q ^primary_keyboard_layout /tmp/config 2>/dev/null && echo true > ${TMPDIR}/pkbdl.mon
+) &
+
+# Chrome quirks:
+echo false > ${TMPDIR}/chrome.mon
+
+# Cloud quirks:
+echo false > ${TMPDIR}/cloud.mon
+
+# ThinClient quirks:
+echo false > ${TMPDIR}/thin.mon
+
+
+# Launch wizard:
+export WIZARD_MAIN='
+<window title="'${CFG_PRODUCT}' - install wizard" icon-name="kiosk" resizable="false" width-request="'${WINWIDTH}'" height-request="'${WINHEIGHT}'" decorated="true">
+<vbox>
+
+## <------- FIRST PAGE CONFIGURATIONS
+<notebook page="0" show-tabs="false" show-border="false" labels="configurations|report|autoupdates|device"  height-request="'${AREAHEIGHT}'">
+
+################## PAGE 0 INITIAL CHOICE
+<vbox margin="10">
+	<text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'${CFG_PRODUCT}' - installation </span>"</label></text>
+	<text><label>""</label></text>
+	<hseparator></hseparator>
+	<text xalign="0" wrap="true">
+	    <label>
+	    Select an action below. You may start Kiosk Wizard to create new kiosk configuration,
+	    add kiosk to existing remote management configuration or load previously created kiosk
+	    config from the network/removable device.
+	    </label>
+	</text>
+	<text><label>""</label></text>
+	<hbox>
+            <button width-request="'${AREAWIDTH}'" image-position="2" tooltip-text="Launch Kiosk Wizard with all options">
+                    <height>150</height>
+                    <input file>'${ICONS}'/wizard-160.png</input>
+                    <label>Launch the Kiosk Wizard to create new configuration</label>
+                    <action>echo 1 > '${TMPDIR}'/.knetPage</action>
+                    <action function="refresh">nPage</action>
+                    <action function="show">butBack</action>
+                    <action function="show">butVKeyboard</action>
+                    <action function="show">butBrowser</action>
+                    <action function="show">butNextWizard</action>
+            </button>
+    </hbox>
+    <hbox>
+            <button width-request="'${AREAHALF}'"  image-position="2" tooltip-text="Load previously saved kiosk config from the URL">
+                    <height>150</height>
+                    <input file>'${ICONS}'/download-160.png</input>
+                    <label>Load configuration from a URL</label>
+                    <action>get_input "Kiosk config URL" "Enter the link to previously generated kiosk config to load it from the network right now. Please verify that URL is typed in correctly by clicking on the '"'Test config'"' button." 830 '${TMPDIR}'/net-config kiosk_config '${TMPDIR}'/net-config.txt load_config</action>
+                    <action>echo 2 > '${TMPDIR}'/.knetPage</action>
+                    <action function="refresh">nPage</action>
+                    <action function="refresh">txtReport</action>
+                    <action function="show">butBack</action>
+                    <action function="show">butVKeyboard</action>
+                    <action function="show">butBrowser</action>
+                    <action function="show">butLoadConf</action>
+                    <action function="show">butSaveConf</action>
+                    <action function="show">butNextReport</action>
+            </button>
+            <button width-request="'${AREAHALF}'" image-position="2" tooltip-text="Load previously saved kiosk config from removable device">
+                    <height>150</height>
+                    <input file>'${ICONS}'/removable-media-160.png</input>
+                    <label>Load configuration from device</label>
+                    <action>gtk_lconfig</action>
+                    <action>echo 2 > '${TMPDIR}'/.knetPage</action>
+                    <action function="refresh">nPage</action>
+                    <action function="refresh">txtReport</action>
+                    <action function="show">butBack</action>
+                    <action function="show">butVKeyboard</action>
+                    <action function="show">butBrowser</action>
+                    <action function="show">butLoadConf</action>
+                    <action function="show">butSaveConf</action>
+                    <action function="show">butNextReport</action>
+            </button>
+    </hbox>
+</vbox>
+
+################## PAGE 1 WIZARD
+<vbox scrollable="true" margin="8" hscrollbar-policy="2">
+## <------- PAGE TITLE
+
+	<text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'${CFG_PRODUCT}' - install wizard</span>"</label></text>
+
+	<hseparator></hseparator>
+
+	<text><label>""</label></text>
+    <text xalign="0" width-request="'${AREAWIDTH}'" wrap="true"><label>Now is the time to configure the basic '${CFG_PRODUCT}' features. Adjust the ones that are relevant to you, like the screen resolution, ssh root password, mouse support ... You can disable the features you do not plan to use to obtain a more compact system.</label></text>
+	<text><label>""</label></text>
+
+## <------- General Tweaks
+    <vbox>
+        <radiobutton visible="false" file-monitor="true" auto-refresh="true">
+        </radiobutton>
+        <radiobutton visible="false" file-monitor="true" auto-refresh="true">
+            <input file>'${TMPDIR}'/generalq.mon</input>
+            <action function="disable">rbutPmanEn</action>
+            <action function="disable">rbutPmanDis</action>
+            <action function="disable">pixPman</action>
+            <action function="disable">rbutToggleEn</action>
+            <action function="disable">rbutToggleDis</action>
+            <action function="disable">pixToggle</action>
+            <action function="enable">rbutSsetDis</action>
+            <action function="enable">rbutSsetEn</action>
+            <action function="enable">pixSset</action>
+        </radiobutton>
+    </vbox>
+    <vbox>
+        <radiobutton visible="false" file-monitor="true" auto-refresh="true">
+            <input file>'${TMPDIR}'/dissbut.mon</input>
+            <action function="disable">rbutSRVEn</action>
+            <action function="disable">rbutSRVDis</action>
+        </radiobutton>
+        <radiobutton visible="false" file-monitor="true" auto-refresh="true">
+            <input file>'${TMPDIR}'/enasbut.mon</input>
+            <action function="enable">rbutSRVEn</action>
+            <action function="enable">rbutSRVDis</action>
+        </radiobutton>
+    </vbox>
+
+######################## INSTALL SETTINGS #############################
+    <expander expanded="true">
+        <vbox>
+
+        '${opt_pers}'
+
+######### SHUTDOWN MENU
+            <frame Shutdown menu>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/shutdown-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable the shudown utility">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true get_shutdown</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Disable the shutdown utility">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm '${TMPDIR}'/shutdowncombo.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Enable the shutdown/reboot/suspend/session-restart menu by using the Ctrl+Alt+Del key combination, by pressing the PCs power button or by clicking on the "'"Exit"'" button in Cloud/ThinClient systems. Do not use this option if the kiosk is used publicly otherwise it may be powered off by unauthorized users. If this option remains disabled then kiosk shuts down immediately once the PC power button is pressed.</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### SSH COMPONENT
+        <frame SSH service>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/ssh-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Include SSH service" file-monitor="true" auto-refresh="true">
+                        <label>Enable</label>
+                        <variable>rbutSSHEn</variable>
+                        <default>false</default>
+                        <input file>'${TMPDIR}'/enablessh.mon</input>
+                        <action>if true echo 08-ssh.xzm > '${TMPDIR}'/ssh.add</action>
+                        <action>if true gtk_password "Root Password" "Enter a root password that will be used to connect to the kiosk through ssh." "root"</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Exclude SSH service" file-monitor="true" auto-refresh="true">
+                        <label>Disable</label>
+                        <variable>rbutSSHDis</variable>
+                        <default>true</default>
+                        <input file>'${TMPDIR}'/disablessh.mon</input>
+                        <action>if true rm '${TMPDIR}'/ssh.* 2>/dev/null</action>
+                        <action>if true rm '${TMPDIR}'/sshport.tmp 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>SSH (Secure shell) service allows to connect/communicate to the kiosk machine via the SSH protocol. Selected port will be opened in the kiosk firewall configuration.</label>
+                </text>
+            </hbox>
+        </frame>
+
+
+      </vbox>
+        <variable>xNetwork</variable>
+        <label>INSTALL SETTINGS</label>
+    </expander>
+
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## EXPERT CATEGORY #############################
+    <expander expanded="false">
+    <vbox>
+
+######### SWAP FILE
+            <frame SWAP file>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/swap-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Create and use swap file">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true echo swapfile=1024 > '${TMPDIR}'/swap.tmp</action>
+                            <action>if true get_input "Swap file" "Enter the size (in megabytes) of the swap file. Your installation device must be large enough to hold system partition: 900 MB and the swap file." 830 '${TMPDIR}'/swap.tmp swapfile '${TMPDIR}'/swap.txt</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Do not use the swap file">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm '${TMPDIR}'/swap.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Create and use a swap file, the virtual memory extension of PCs real memory (RAM). Swap file will be created on a persistent partition of booting device, kiosk installed on an optical media (CD/DVD) or booted over network (PXE boot) cant take advantage of this feature. This option is less secure as some data may persist in the swap file. Booting media wont be spinned down when swap file is used. Only enable this option on PCs with low amount of RAM.</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### KERNEL PARAMETERS
+            <frame Kernel parameters>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/tux-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enter additional kernel parameters to the bootloader">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true get_input "Additional kernel parameters" "Provide kernel parameters below:" 830 '${TMPDIR}'/kparam.tmp kernel_parameters '${TMPDIR}'/kparam.txt</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Run the system without additional kernel parameters">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm ${TMPDIR}/kparam.tmp</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" selectable="true" width-request="'${HELPWIDTH}'">
+                        <label>"Enter Linux kernel parameters which will be added to the system bootloader configuration. Enable this option only if you are are having problems with kiosk hardware, e.g. power management does not work, wifi speed is slow, system hangs on a reboot. Full list of supported kernel parameters can be find here: https://www.kernel.org/doc/Documentation/kernel-parameters.txt."</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### GPU DRIVER
+            <frame GPU driver>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/gpu-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Use native GPU driver">
+                            <label>Default</label>
+                            <default>true</default>
+                            <action>if true rm -f '${TMPDIR}'/gpu.tmp</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Force kernel modesetting driver">
+                            <label>KMS</label>
+                            <default>false</default>
+                            <action>if true echo "gpu_driver=modesetting" > '${TMPDIR}'/gpu.tmp</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Force generic VESA driver">
+                            <label>VESA</label>
+                            <default>false</default>
+                            <action>if true echo "gpu_driver=vesa" > '${TMPDIR}'/gpu.tmp</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'" use-markup="true">
+                        <label>"Select 2D DDX driver for your GPU card. <span weight='"'bold'"' color='"'red'"'>WARNING:</span> kernel modesetting and VESA drivers are generic, unaccelerated and offer less features than the default driver. Use them only if you are having display problems in kiosk. VESA driver requires additional parameter: '"'kernel_parameters=debug'"' - if this parameter is not enabled then VESA driver may not work correctly."</label>
+                    </text>
+                </hbox>
+            </frame>
+
+
+######### zRAM COMPRESSION
+            <frame zRAM compression>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/zram-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable zRAM compression">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true gtk_get_range "Select zRAM percentage" "Use the slider to select a percentage value of zRAM to use. The maximum amount allowed is 50%" 830 zRAM '${TMPDIR}'/zram.tmp 50 % 0</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Do not use zRAM compression">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm '${TMPDIR}'/zram.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Compress data in RAM using the zRAM kernel feature. It is faster than using swap on a hard drive and creates more (virtual) memory than using RAM alone due to the compression used.</label>
+                    </text>
+                </hbox>
+            </frame>
+
+
+######### ICMP PROTOCOL
+            <frame ICMP protocol>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/icmp-48.png</input><variable>pixIcmp</variable></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Allow incoming ICMP. This is useful when you want to check if the kiosk is up and running from another computer using the ping utility">
+                            <label>Enable</label>
+                            <variable>rbutIcmpEn</variable>
+                            <default>false</default>
+                            <action>if true echo allow_icmp_protocol=yes > ${TMPDIR}/icmp.tmp</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Disable the ability to ping the kiosk from other computers" file-monitor="true" auto-refresh="true">
+                            <label>Disable</label>
+                            <variable>rbutIcmpDis</variable>
+                            <default>true</default>
+                            <input file>'${TMPDIR}'/icmpDisable.mon</input>
+                            <action>if true rm ${TMPDIR}/icmp.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+## <------- This text is blank padding to put space after radiobuttons
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <variable>txtIcmp</variable>
+                        <label>"Answer incoming ICMP queries. This is useful when you want to check if the kiosk is up and running from another computer using the ping utility."</label>
+                    </text>
+                </hbox>
+            </frame>
+
+        </vbox>
+        <variable>xNetwork</variable>
+        <label>EXPERT INSTALL SETTINGS</label>
+    </expander>
+
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## SCREEN CATEGORY #############################
+    <expander expanded="true">
+    <vbox>
+
+######### SCREEN
+        <frame Screen settings>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/screenres-48.png</input><variable>pixSset</variable></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Custom screen setup">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <variable>rbutSsetEn</variable>
+                        <action>if true /opt/setup/screen</action>
+                        <action>if true echo true > ${TMPDIR}/srotDisable.mon</action>
+                        <action function="disable">rbutSrotDis</action>
+                        <action function="disable">rbutSrotEn</action>
+                        <action function="disable">pixSrot</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Use default screen settings" file-monitor="true" auto-refresh="true">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <variable>rbutSsetDis</variable>
+                        <input file>'${TMPDIR}'/ssetDisable.mon</input>
+                        <action>if true rm '${TMPDIR}'/screen-settings.tmp 2>/dev/null</action>
+                        <action function="enable">rbutSrotDis</action>
+                        <action function="enable">rbutSrotEn</action>
+                        <action function="enable">pixSrot</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>By default the kiosk will use maximum supported screen resolution, refresh rate and backlight brightness. When enabling this option you may choose custom screen parameters but also disable certain video outputs, rotate screens or set them in certain position: e.g. to create a video wall for digital signage.</label>
+                    <variable>txtSset</variable>
+                </text>
+            </hbox>
+        </frame>
+
+######### SCREENRES
+        <hbox visible="false">
+                <pixmap><input file>'${ICONS}'/screenres-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Set a lower screen resolution">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true xrandr|grep [0-9].*x[0-9]|grep -v connect|tr -s "'" "'"|cut -d"'" "'" -f2 > '${TMPDIR}'/res.txt</action>
+                        <action> if true gtk_list "Choose resolution" "Choose from one of the supported screen resolutions or enter your own below (provided value must be supported by the monitor)." 830 screen_resolution '${TMPDIR}'/res.txt '${TMPDIR}'/res.tmp res</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Use the maximum available screen resolution">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/res.tmp 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>By default the kiosk will use maximum supported screen resolution but you may also set a custom lower resolution.</label>
+                </text>
+        </hbox>
+
+######### SCREEN REFRESH RATE
+        <hbox visible="false">
+                <pixmap><input file>'${ICONS}'/refresh-rate-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Set a lower refresh rate">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true xrandr|grep [0-9].*x[0-9]|grep -v connect|tr -s "'" "'"|cut -d"'" "'" -f3|cut -d"'"*"'" -f1|sort -u > '${TMPDIR}'/refresh.txt</action>
+                        <action> if true gtk_list "Choose refresh rate" "Choose from one of the supported refresh rates or enter your own below (provided value must be supported by the monitor)." 830 screen_refresh_rate '${TMPDIR}'/refresh.txt '${TMPDIR}'/refresh.tmp refresh</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Use maximum available refresh rate">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/refresh.tmp 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>By default the kiosk will use maximum supported screen refresh rate but you may also set a custom lower refresh rate.</label>
+                </text>
+        </hbox>
+
+######### SCREEN BRIGHTNESS
+        <hbox visible="false">
+                <pixmap><input file>'${ICONS}'/brightness-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Set a lower screen brightness">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true gtk_get_range "Screen brightness percentage" "Use the slider to select a percentage value of the screen brightness to use." 830 screen_brightness '${TMPDIR}'/brightness.tmp 100 " " 100</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Use the maximum available screen brightness">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/brightness.tmp 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>By default the kiosk will use maximum supported screen brightness but you may also set a custom lower screen brightness.</label>
+                </text>
+        </hbox>
+
+      </vbox>
+        <variable>xNetwork</variable>
+        <label>SCREEN SETTINGS</label>
+    </expander>
+
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## SOUND CATEGORY #############################
+    <expander expanded="true">
+    <vbox>
+
+######### SOUND CARD
+        <frame Default system sound card>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/sound-card-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Set default sound card">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true aplay -l | grep ^card > '${TMPDIR}'/sound-cards.txt</action>
+                        <action>if true gtk_list "Default system sound card" "Choose default sound device from the list below:" 830 default_sound_card '${TMPDIR}'/sound-cards.txt '${TMPDIR}'/selected-card.txt sound-card</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Do not change default sound card">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/sound-card.tmp '${TMPDIR}'/selected-card.txt 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>Set default sound card in case when you have no sound in kiosk or when you want to redirect the sound output to different device like external monitor/TV.</label>
+                </text>
+            </hbox>
+        </frame>
+
+######### MICROPHONE
+        <frame Default microphone>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/microphone-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Set default microphone">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true arecord -l | grep ^card > '${TMPDIR}'/microphone.txt</action>
+                        <action>if true gtk_list "Default microphone" "Choose default capture device from the list below:" 830 default_microphone '${TMPDIR}'/microphone.txt '${TMPDIR}'/selected-mic.txt microphone</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Do not change default microphone">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/microphone.tmp '${TMPDIR}'/selected-mic.txt 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>Set default microphone in case when you have multiple capture devices in the system: webcam, USB mic, external sound card, etc.</label>
+                </text>
+            </hbox>
+        </frame>
+
+######### SOUND VOLUME LEVEL
+        <frame Sound volume>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/sound-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Set custom sound volume level">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true gtk_get_range "Set sound volume level" "Use the slider to select a percentage value of the sound level to use. When set to 0 the sound will be muted." 830 volume_level '${TMPDIR}'/sound.tmp 100 % 90</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Set sound volume level to 90%">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/sound.tmp 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>By default the kiosk will set the sound volume to 90% but you may also choose a custom level by enabling this option.</label>
+                </text>
+            </hbox>
+        </frame>
+    </vbox>
+    <variable>xSystem</variable>
+    <label>SOUND SETTINGS</label>
+    </expander>
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## NETWORK CATEGORY #############################
+    <expander expanded="true">
+        <vbox>
+######### CUSTOM HOSTNAME
+            <frame Kiosk hostname>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/hostname-64.png</input><width>48</width></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Set custom hostname">
+                            <label>Enable</label>
+                            <variable>rbutHostnameEn</variable>
+                            <default>false</default>
+                            <action>if true get_input "Custom hostname" "Enter your custom hostname in the box and press enter or click '"'OK'"' button." 830 '${TMPDIR}'/hostname.tmp hostname '${TMPDIR}'/hostname.txt</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Use kiosk as hostname">
+                            <label>Disable</label>
+                            <variable>rbutHostnameDis</variable>
+                            <default>true</default>
+                            <action>if true rm ${TMPDIR}/hostname.tmp</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>"Set custom hostname for the kiosk. Whitespaces in the name are not supported. This feature is useful if you want to indentify the kiosk in the logs or through the shell prompt. If custom hostname remains disabled and Porteus Kiosk Server association is enabled then hostname is set to the client_id number automatically."</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### WAKE ON LAN
+            <frame Wake On LAN>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/wol-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable WOL function">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true echo wake_on_lan=yes > ${TMPDIR}/wol.tmp</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Disable WOL function" file-monitor="true">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm ${TMPDIR}/wol.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+## <------- This text is blank padding to put space after radiobuttons
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'" selectable="true">
+                    <label>"Wake up the kiosk PCs remotely by sending a magic packet to them. Please follow this guide to find about requirements:  http://porteus-kiosk.org/wol.html"</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### HOSTNAME ALIASES
+            <frame Hostname aliases>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/static-hostnames-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Add hostname aliases">
+                            <label>Enable</label>
+                            <variable>rbutHostnamesEn</variable>
+                            <action>if true gtk_entry_box "Hostname aliases" "Enter your fixed aliases below in following format: '"'IP domain'"' or '"'IP domain hostname'"'. They will be added to /etc/hosts file in the system. Use one entry per line." 830 390 "10.0.0.15 first.domain.local first" '${TMPDIR}'/hostname-aliases hostnames</action>
+                            <default>false</default>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Do not add hostname aliases">
+                            <label>Disable</label>
+                            <variable>rbutHostnamesDis</variable>
+                            <action>if true rm '${TMPDIR}'/hostname-aliases.tmp</action>
+                            <default>true</default>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Add fixed aliases-to-address mappings for local host. Enable this option if kiosk is having troubles resolving non fully qualified domain names, e.g: http://server.local</label>
+                    </text>
+                </hbox>
+            </frame>
+
+        </vbox>
+        <variable>xNetwork</variable>
+        <label>NETWORK SETTINGS</label>
+    </expander>
+
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## SYSTEM CATEGORY #############################
+    <expander expanded="true">
+        <vbox>
+
+######### REMOVABLE DEVICES
+            <frame Removable devices>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/removable-media-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable support for removable devices">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true echo "removable_devices=yes" > '${TMPDIR}'/removable.tmp</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Do not allow removable devices">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm '${TMPDIR}'/removable.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Enable support for removable devices like usb sticks or flash cards. The only accepted filesystems are: FAT16/32, NTFS and XFS. Devices are mounted as read-only for the Kiosk and read-write for the '"'Cloud'"' and '"'ThinClient'"' variants under the /media folder and displayed in a separate tab in the browser. This feature allows kiosk users to read or upload images, PDFs and documents from external storage media or save files to it.</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### TIME ZONE
+            <frame Time zone>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/timezone-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable custom timezone">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true gtk_list "Choose a timezone" "Choose a timezone from the list below:" 830 timezone /opt/setup/wizards/inc/timezones.txt '${TMPDIR}'/timezone.tmp ntpserver</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Use Factory as default timezone">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm '${TMPDIR}'/timezone.tmp '${TMPDIR}'/ntp-server.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Choose a timezone from a list of world timezones. Hardware clock will be set through the NTP protocol during every kiosk boot if PC is connected to the network. Make sure that your company firewall is not blocking the NTP protocol.</label>
+                    </text>
+                </hbox>
+            </frame>
+
+######### RTC WAKE
+            <frame RTC wake alarm>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/rtc-48.png</input></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable RTC wake alarm">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <action>if true gtk_rtc</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Keep the RTC wake alarm disabled">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <action>if true rm -f '${TMPDIR}'/rtc.tmp '${TMPDIR}'/sched-*</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Enable if you want to setup a RTC wake alarm to power up the kiosk at certain hour:minute within each day of the week. Your PC motherboard must support this feature and '"'Wake up events'"' must be enabled in the BIOS/EFI firmware in order to get this function working properly.</label>
+                    </text>
+                </hbox>
+            </frame>
+
+      </vbox>
+        <variable>xNetwork</variable>
+        <label>SYSTEM SETTINGS</label>
+    </expander>
+
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## INPUT CATEGORY #############################
+    <expander expanded="true">
+    <vbox>
+
+######### INPUT
+            <frame Input devices   '$CLWRN'>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/input-48.png</input><variable>pixInput</variable></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Keep the input devices enabled">
+                            <label>Enable</label>
+                            <default>true</default>
+                            <variable>rbutInputEn</variable>
+                            <action>if true rm '${TMPDIR}'/input_devices.tmp 2>/dev/null</action>
+                            <action function="enable">pixKbdPri</action>
+                            <action function="enable">pixKbdSec</action>
+                            <action function="enable">pixNum</action>
+                            <action function="enable">pixMouse</action>
+                            <action function="enable">pixRMC</action>
+                            <action function="enable">pixCalibrate</action>
+                            <action function="enable">rbutKbdPriEn</action>
+                            <action function="enable">rbutKbdPriDis</action>
+                            <action function="enable">rbutKbdSecEn</action>
+                            <action function="enable">rbutKbdSecDis</action>
+                            <action function="enable">rbutNumEn</action>
+                            <action function="enable">rbutNumDis</action>
+                            <action function="enable">rbutMouseEn</action>
+                            <action function="enable">rbutMouseDis</action>
+                            <action function="enable">rbutRMCEn</action>
+                            <action function="enable">rbutRMCDis</action>
+                            <action function="enable">rbutCalibrateEn</action>
+                            <action function="enable">rbutCalibrateDis</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Disable all input devices">
+                            <label>Disable</label>
+                            <default>false</default>
+                            <variable>rbutInputDis</variable>
+                            <action>if true echo "disable_input_devices=yes" > '${TMPDIR}'/input_devices.tmp</action>
+                            <action>if true echo "true" > '${TMPDIR}'/KbdPri.mon</action>
+                            <action>if true echo "true" > '${TMPDIR}'/KbdSec.mon</action>
+                            <action>if true echo "true" > '${TMPDIR}'/Num.mon</action>
+                            <action>if true echo "true" > '${TMPDIR}'/Mouse.mon</action>
+                            <action>if true echo "true" > '${TMPDIR}'/RMC.mon</action>
+                            <action> if true rm '${TMPDIR}'/keyboard1.tmp 2>/dev/null</action>
+                            <action> if true rm '${TMPDIR}'/keyboard2.tmp 2>/dev/null</action>
+                            <action> if true rm '${TMPDIR}'/numlock.tmp 2>/dev/null</action>
+                            <action> if true rm '${TMPDIR}'/mouse.tmp 2>/dev/null</action>
+                            <action> if true rm '${TMPDIR}'/rmc.tmp 2>/dev/null</action>
+                            <action function="disable">pixKbdPri</action>
+                            <action function="disable">pixKbdSec</action>
+                            <action function="disable">pixNum</action>
+                            <action function="disable">pixMouse</action>
+                            <action function="disable">pixRMC</action>
+                            <action function="disable">pixCalibrate</action>
+                            <action function="disable">rbutKbdPriEn</action>
+                            <action function="disable">rbutKbdPriDis</action>
+                            <action function="disable">rbutKbdSecEn</action>
+                            <action function="disable">rbutKbdSecDis</action>
+                            <action function="disable">rbutNumEn</action>
+                            <action function="disable">rbutNumDis</action>
+                            <action function="disable">rbutMouseEn</action>
+                            <action function="disable">rbutMouseDis</action>
+                            <action function="disable">rbutRMCEn</action>
+                            <action function="disable">rbutRMCDis</action>
+                            <action function="disable">rbutCalibrateEn</action>
+                            <action function="disable">rbutCalibrateDis</action>
+
+                        </radiobutton>
+                        <radiobutton tooltip-text="Disable input devices temporarily" auto-refresh="true">
+                            <label>Test</label>
+                            <default>false</default>
+                            <variable>rbutInputTest</variable>
+                            <action>if true test_input</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Disable all input devices like mice, keyboards, touchpads, touchscreens, digital pens, etc so its not possible to type, touch, scroll, draw or click on any objects. This is useful when kiosk works in a digital signage mode. If you activate the '"'Test'"' entry then input devices will be disabled for 10 seconds.</label>
+                        <variable>txtInput</variable>
+                    </text>
+                </hbox>
+            </frame>
+######### KEYBOARD LAYOUT
+            <frame Keyboard layout>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/keyboard-48.png</input><variable>pixKbdPri</variable></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable custom keyboard layout" file-monitor="true" auto-refresh="true">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <input file>'${TMPDIR}'/pkbdl.mon</input>
+                            <variable>rbutKbdPriEn</variable>
+                            <action>if true gtk_list "Primary keyboard layout" "Choose a keyboard layout from the list:" 830 primary_keyboard_layout /opt/setup/wizards/inc/keyboards.txt '${TMPDIR}'/keyboard1.txt keyboard1</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Use en-US as default keyboard layout" file-monitor="true" auto-refresh="true">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <variable>rbutKbdPriDis</variable>
+                            <input file>'${TMPDIR}'/KbdPri.mon</input>
+                            <action>if true rm '${TMPDIR}'/keyboard1.tmp 2>/dev/null</action>
+                            <action>if true sed -i /^primary_keyboard_layout/d /tmp/config 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Choose a primary keyboard from the list of known keyboard layouts and variants. The default layout is English (US).</label>
+                        <variable>txtKbdPri</variable>
+                    </text>
+                </hbox>
+            </frame>
+######### NUMLOCK
+            <frame Numlock key>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/numlock-48.png</input><variable>pixNum</variable></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Leave the numlock enabled" file-monitor="true" auto-refresh="true">
+                            <label>Enable</label>
+                            <default>true</default>
+                            <variable>rbutNumEn</variable>
+                            <input file>'${TMPDIR}'/Num.mon</input>
+                            <action>if true rm '${TMPDIR}'/numlock.tmp 2>/dev/null</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Disable the numlock key">
+                            <label>Disable</label>
+                            <default>false</default>
+                            <variable>rbutNumDis</variable>
+                            <action>if true echo "disable_numlock=yes" > '${TMPDIR}'/numlock.tmp</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Disable the numlock key when system boots. Useful if you are having trouble with keyboards that have number panels.</label>
+                        <variable>txtNum</variable>
+                    </text>
+                </hbox>
+            </frame>
+
+######### CURSOR
+            <frame Mouse cursor   '$CLWRN'>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/cursor-48.png</input><variable>pixMouse</variable></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Keep the mouse cursor visible" file-monitor="true" auto-refresh="true">
+                            <label>Enable</label>
+                            <default>true</default>
+                            <variable>rbutMouseEn</variable>
+                            <input file>'${TMPDIR}'/Mouse.mon</input>
+                            <action>if true rm '${TMPDIR}'/mouse.tmp '${TMPDIR}'/mouse-seconds.tmp 2>/dev/null</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Hide the mouse cursor">
+                            <label>Disable</label>
+                            <default>false</default>
+                            <variable>rbutMouseDis</variable>
+                            <action>if true echo "hide_mouse=yes" > '${TMPDIR}'/mouse.tmp</action>
+                            <action>if true get_cursor_mode</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Hide the mouse cursor either permanently or after "'"x"'" seconds of inactivity. This setting may be useful for touchscreens or when you want to display a static page or advertisement.</label>
+                        <variable>txtMouse</variable>
+                    </text>
+                </hbox>
+            </frame>
+
+######### RMC
+            <frame Right mouse click>
+                <hbox>
+                    <pixmap><input file>'${ICONS}'/rmc-48.png</input><variable>pixRMC</variable></pixmap>
+                    <vbox>
+                        <radiobutton tooltip-text="Enable right mouse click">
+                            <label>Enable</label>
+                            <default>false</default>
+                            <variable>rbutRMCEn</variable>
+                            <action>if true echo "right_mouse_click=yes" > '${TMPDIR}'/rmc.tmp</action>
+                        </radiobutton>
+                        <radiobutton tooltip-text="Keep the right mouse click disabled" file-monitor="true" auto-refresh="true">
+                            <label>Disable</label>
+                            <default>true</default>
+                            <variable>rbutRMCDis</variable>
+                            <input file>'${TMPDIR}'/RMC.mon</input>
+                            <action>if true rm '${TMPDIR}'/rmc.tmp 2>/dev/null</action>
+                        </radiobutton>
+                    </vbox>
+                    <text width-request="10"><label>""</label></text>
+                    <text yalign="0" width-request="'${HELPWIDTH}'">
+                        <label>Enable support for right mouse click in kiosk. Right mouse click provides an access to additional menus (e.g. for Chrome browser or flash content) and is usually not needed in kiosk. Here you can enable it to cover rare cases, e.g. it helps when working with online documents.</label>
+                        <variable>txtRMC</variable>
+                    </text>
+                </hbox>
+            </frame>
+        </vbox>
+        <variable>xNetwork</variable>
+        <label>KEYBOARD, MOUSE AND TOUCH</label>
+    </expander>
+
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+
+######################## POWER SAVING #############################
+    <expander expanded="true">
+    <vbox>
+######### DPMS
+        <frame Display Sleep>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/dpms-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Enable DPMS">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true echo dpms_idle=10 > '${TMPDIR}'/dpms.tmp 2>/dev/null</action>
+                        <action>if true get_input "DPMS idle" "Set the time (in minutes) of inactivity after which the monitor will be powered off. Maximum supported value is 540 minutes." 830 '${TMPDIR}'/dpms.tmp dpms_idle '${TMPDIR}'/dpms.txt</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Disable DPMS">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/dpms.tmp 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>Enable DPMS (Display Power Management Signaling) which turns the monitor off after X minutes of keyboard/mouse inactivity.</label>
+                </text>
+            </hbox>
+        </frame>
+
+######### FREEZE/STANDBY/SUSPEND
+        <frame Power settings>
+            <hbox>
+                <pixmap><input file>'${ICONS}'/suspend-48.png</input></pixmap>
+                <vbox>
+                    <radiobutton tooltip-text="Enable power saving feature when the PC is at idle">
+                        <label>Enable</label>
+                        <default>false</default>
+                        <action>if true echo "freeze_idle=10" > '${TMPDIR}'/powersave.tmp</action>
+                        <action>if true get_power_option</action>
+                    </radiobutton>
+                    <radiobutton tooltip-text="Do not enable any power saving features when the PC is at idle">
+                        <label>Disable</label>
+                        <default>true</default>
+                        <action>if true rm '${TMPDIR}'/powersave.* 2>/dev/null</action>
+                    </radiobutton>
+                </vbox>
+                <text width-request="10"><label>""</label></text>
+                <text yalign="0" width-request="'${HELPWIDTH}'">
+                    <label>Enable this option to freeze, standby, suspend, or shutdown the kiosk when the computer is idle/inactive for a defined number of minutes.</label>
+                </text>
+            </hbox>
+        </frame>
+
+    </vbox>
+    <variable>xPower</variable>
+    <label>POWER SAVING OPTIONS</label>
+    </expander>
+    <text><label>""</label></text>
+    <text><label>""</label></text>
+## This vbox closes the opening vbox for notebooks
+</vbox>
+
+################## PAGE 2 USER REPORT
+<vbox margin="10">
+	<text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Setting report</span>"</label></text>
+	<hseparator></hseparator>
+	<text xalign="0" width-request="'${AREAWIDTH}'"  wrap="true"><label>Review the kiosk settings below. You can preserve your current config by saving it on removable device or launching the browser, copying it with Ctrl+c keyboard shortcut and sending to your email account. You can also paste or load previously saved kiosk settings up here. If kiosk will be deployed in another location with different network/proxy settings then please add, remove or edit relevant parameters in the window below. Click '"'Next'"' button to proceed with the installation.</label></text>
+	<text><label>""</label></text>
+	<edit height-request="300" sensitive="true">
+		<variable>txtReport</variable>
+		<input file>/tmp/config</input>
+		<output file>/tmp/config</output>
+	</edit>
+</vbox>
+
+
+################## PAGE 3 AUTOMATIC UPDATES
+<vbox margin="10">
+	<text width-request="'${AREAWIDTH}'" use-markup="true"><label>"<b>Thank you for supporting our project financially.</b>"</label></text>
+</vbox>
+
+
+################## PAGE 4 BURN
+<vbox margin="10">
+	<text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>System installation</span>"</label></text>
+	<hseparator></hseparator>
+	<text xalign="0" width-request="'${AREAWIDTH}'"  wrap="true" use-markup="true"><label>"Please choose the target device (must have at least <span weight='"'bold'"' color='"'red'"'>950 MB</span> size to which you will be installing your configured '${CFG_PRODUCT}' system. You may also save the installation ISO on a removable device."</label></text>
+	<text><label>""</label></text>
+	<text xalign="0" width-request="'${AREAWIDTH}'" ><label>"Device formatting options:"</label></text>
+	<vbox>
+		<radiobutton>
+			<label>Preserve persistent partition (if '${CFG_PRODUCT}' is already installed on selected device with persistence enabled)</label>
+			<default>false</default>
+			<action>if true rm -f /tmp/format_device /tmp/zero_device</action>
+		</radiobutton>
+		<radiobutton>
+			<label>Quick formatting</label>
+			<default>true</default>
+			<action>if true touch /tmp/format_device && rm -f /tmp/zero_device</action>
+		</radiobutton>
+		<radiobutton>
+			<label>Secure Erase (completion time depends on size and speed of selected device)</label>
+			<default>false</default>
+			<action>if true touch /tmp/zero_device && rm -f /tmp/format_device</action>
+		</radiobutton>
+	</vbox>
+	<text><label>""</label></text>
+	<text xalign="0" width-request="'${AREAWIDTH}'"  wrap="true" use-markup="true"><label>"<span weight='"'bold'"' color='"'red'"'>WARNING:</span> when you click the '"'Install system'"' button the installation process will start immediately. <span weight='"'bold'"' color='"'red'"'>Any existing operating system (Windows, Linux, OS X) or other data will be replaced with '${CFG_PRODUCT}' Kiosk image. This action is irreversible and you can not blame us for any potential data loss. Be careful when selecting the device</span>"</label></text>
+	<text><label>""</label></text>
+	<table>
+		<variable>tblTarget</variable>
+		<width>700</width>
+		<label>"NAME               |TYPE           |MODEL                                              |SIZE"</label>
+		<height>250</height>
+		<input file>'${TMPDIR}'/block.txt</input>
+		<action>echo $tblTarget > '${TMPDIR}'/target.txt</action>
+	</table>
+</vbox>
+
+
+######### END OF PAGES
+<variable>nPage</variable>
+<input file>'${TMPDIR}'/.knetPage</input>
+</notebook>
+
+######### BUTTONS
+<hbox>
+	<button visible="false">
+	    <label>Abort</label>
+	    <variable>butBack</variable>
+	    <input file>'${BUTPREV}'</input>
+	    <action>echo > /tmp/wizard-lock</action>
+	    <action>rm /tmp/wizard-continue</action>
+	    <action function="exit">finished</action>
+	</button>
+	<button visible="false" tooltip-text="Launch virtual keyboard">
+	    <label>Virtual keyboard</label>
+	    <input file>/usr/share/pixmaps/vk-48.png</input>
+	    <variable>butVKeyboard</variable>
+	    <width>16</width>
+	    <action>pidof xvkbd && killall xvkbd || /opt/scripts/xvkbd</action>
+	</button>
+	<button visible="false" tooltip-text="Exit the wizard">
+	    <variable>xExit</variable>
+	    <label>Exit</label>
+	    <input file stock="gtk-no"></input>
+	    <width>16</width>
+	    <action>sed -i '/burn_dev/d' /tmp/config</action>
+	    <action function="exit">skip</action>
+	</button>
+	<button visible="false" tooltip-text="Load kiosk config from removable device">
+		<label>Load config</label>
+		<variable>butLoadConf</variable>
+		<input file>/usr/share/pixmaps/removable-media-48.png</input>
+		<height>16</height>
+		<action>gtk_lconfig</action>
+		<action function="refresh">txtReport</action>
+	</button>
+	<button visible="false" tooltip-text="Save kiosk config on removable device">
+		<label>Save config</label>
+		<variable>butSaveConf</variable>
+		<input file>/usr/share/pixmaps/removable-media-48.png</input>
+		<height>16</height>
+		<action>save:txtReport</action>
+		<action>echo >> /tmp/config</action>
+		<action>gtk_sconfig</action>
+	</button>
+	<button visible="false" tooltip-text="Save kiosk ISO on removable device">
+		<label>Save ISO</label>
+		<variable>butSaveISO</variable>
+		<input file>/usr/share/pixmaps/removable-media-48.png</input>
+		<height>16</height>
+		<action>gtk_sISO</action>
+	</button>
+## <-------- wizard page button
+	<button visible="false" tooltip-text="Proceed">
+		<label>Next</label>
+		<variable>butNextWizard</variable>
+		<input file>'$BUTNEXT'</input>
+		<action>process_settings</action>
+		<action>echo 2 > '${TMPDIR}'/.knetPage</action>
+		<action function="refresh">nPage</action>
+		<action function="refresh">txtReport</action>
+		<action condition="command_is_true( [ `grep 2 '${TMPDIR}'/.knetPage` ] && echo true )">show:butLoadConf</action>
+		<action condition="command_is_true( [ `grep 2 '${TMPDIR}'/.knetPage` ] && echo true )">show:butSaveConf</action>
+		<action condition="command_is_true( [ `grep 2 '${TMPDIR}'/.knetPage` ] && echo true )">hide:butNextWizard</action>
+		<action condition="command_is_true( [ `grep 2 '${TMPDIR}'/.knetPage` ] && echo true )">show:butNextReport</action>
+	</button>
+## <-------- report page button
+	<button visible="false" tooltip-text="Proceed">
+		<label>Next</label>
+		<variable>butNextReport</variable>
+		<input file>'$BUTNEXT'</input>
+		<action>echo 3 > '${TMPDIR}'/.knetPage</action>
+
+		<action condition="command_is_true( [ `grep 3 '${TMPDIR}'/.knetPage` ] && echo true )">save:txtReport</action>
+		<action condition="command_is_true( [ `grep 3 '${TMPDIR}'/.knetPage` ] && echo true )">echo >> /tmp/config</action>
+		<action condition="command_is_true( [ `grep 3 '${TMPDIR}'/.knetPage` ] && echo true )">hide:butLoadConf</action>
+		<action condition="command_is_true( [ `grep 3 '${TMPDIR}'/.knetPage` ] && echo true )">hide:butSaveConf</action>
+		<action condition="command_is_true( [ `grep 3 '${TMPDIR}'/.knetPage` ] && echo true )">hide:butNextReport</action>
+		<action condition="command_is_true( [ `grep 3 '${TMPDIR}'/.knetPage` ] && echo true )">show:butNextAuto</action>
+
+		<action>lsblk -o NAME,TYPE,MODEL,SIZE | egrep -v "NAME|loop|part|rom" | tr -s " " | sed -e "s/ /_/g" -e "s/_/|/1" -e "s/_/|/1" -e "s/\(.*\)_/\1|/" > '${TMPDIR}'/block.txt</action>
+		<action>echo 4 > '${TMPDIR}'/.knetPage</action>
+		<action function="refresh">nPage</action>
+		<action function="refresh">tblTarget</action>
+		<action condition="command_is_true( [ `grep 4 '${TMPDIR}'/.knetPage` ] && echo true )">touch /tmp/format_device; rm -f /tmp/zero_device</action>
+		<action condition="command_is_true( [ `grep 4 '${TMPDIR}'/.knetPage` ] && echo true )">hide:butNextAuto</action>
+		<action condition="command_is_true( [ `grep 4 '${TMPDIR}'/.knetPage` ] && echo true )">show:butSaveISO</action>
+		<action condition="command_is_true( [ `grep 4 '${TMPDIR}'/.knetPage` ] && echo true )">show:xExit</action>
+		<action condition="command_is_true( [ `grep 4 '${TMPDIR}'/.knetPage` ] && echo true )">show:butRefList</action>
+		<action condition="command_is_true( [ `grep 4 '${TMPDIR}'/.knetPage` ] && echo true )">show:butBurn</action>
+	</button>
+	<button visible="false" tooltip-text="Refresh device list">
+		<label>Refresh list</label>
+		<variable>butRefList</variable>
+		<input file stock="gtk-refresh"></input>
+		<action function="clear">tblTarget</action>
+		<action>dlist</action>
+		<action function="refresh">tblTarget</action>
+	</button>
+	<button visible="false" tooltip-text="Burn kiosk ISO on selected device">
+		<label>Install system</label>
+		<variable>butBurn</variable>
+		<input file>'${ICONS}'/burn-16.png</input>
+		<action condition="command_is_true( [ ! -f '${TMPDIR}'/target.txt ] && echo true )">gtk_warning "Missing parameter" "You must choose a target device to burn the ISO to. You can also save the ISO on removable device or exit the wizard to upload the image to some online storage." 600</action>
+		<action>test -e '${TMPDIR}'/target.txt && { test $(lsblk -b -o TYPE,SIZE /dev/$tblTarget | egrep -v "SIZE|part" | rev | cut -d" " -f1 | rev | sed s/......$//) -gt 950 || { rm -f '${TMPDIR}'/target.txt; gtk_warning "Device too small" "You must choose a target device which is at least 950 MB in size. You can also save the ISO on removable device or exit the wizard to upload the image to some online storage." 600; }; }</action>
+		<action condition="command_is_true( [ ! -f '${TMPDIR}'/target.txt ] && echo true )" function="break">break</action>
+		<action>echo "burn_dev=$tblTarget" >> /tmp/config</action>
+		<action>echo "yes" > /tmp/wizard-continue</action>
+		<action function="exit">finished</action>
+	</button>
+</hbox>
+</vbox>
+</window>'
+
+# /usr/share/icons/oxygen/16x16/devices/drive-harddisk.png
+## Remove any comments and launch
+echo "$WIZARD_MAIN"| sed '/^##/d' | gtkdialog -i /opt/setup/wizards/inc/wizard-functions -s -c > ${TMPDIR}/output
+unset WIZARD_MAIN TMPDIR CONF ICONS
+cleanup
+

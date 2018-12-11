@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# Desktop session init script.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Refactored into rc.d by Rodolfo Lopez <rlp@nebular.tv> 2018
+
+trap initerror SIGHUP SIGINT SIGTERM
+
+# Setup variables:
+
+. /etc/profile.d/variables.sh
+
+PTH=/usr/share/icons/oxygen/22x22
+
+initerror() {
+    echo "- OPENBOX INIT ERROR"
+}
+
+checknetwork() {
+
+    sh /opt/setup/network/check.sh
+    result=$?
+
+    if [ "${result}" = "1" ]; then
+        # aborted network
+        if [ $1 = "yes" ]; then
+            dunstify "Aborted Network Connection, will retry in a 30 secs"
+            sleep 30
+            checknetwork $1
+        else
+            dunstify " Aborted Network Connection, resuming startup"
+        fi
+    fi
+
+}
+
+# Check if correct kernel version is used:
+[ `lsmod | wc -l` -lt 3 ] && {
+    dunstify -u critical -i /usr/share/icons/oxygen/48x48/status/dialog-warning.png "Kernel version: `uname -r` does not match the modules version: `ls /lib/modules/ | tr '\n' ' '`\nPerhaps the system was booted from usb stick while older kiosk installation exist on the hard drive.\nTo force booting from removable device please install the system with following parameter added to kiosk config: 'kernel_parameters=boot_from_usb'."
+    sleep 60
+    init 0
+}
+
+
+# Restrict access for guest to sensitive directories/files:
+chmod 700 /etc/rc.d /etc/X11 /etc/xdg /lib/modules /opt/scripts /root 2>/dev/null
+chmod 600 /etc/inittab /etc/shadow /etc/wpa_supplicant.conf /etc/ssh/sshd_config 2>/dev/null
+chmod 640 /var/log/Xorg.0.log*
+
+
+fecha=`date`
+echo "* ${fecha} - AUTOSTART -------------"
+
+#[ -f /var/run/portron.kp.debug ] && /usr/bin/xterm
+
+#for script in `ls -1 /etc/rc.d/local_gui.d`; do
+#    echo "- running guiscript {$script}"
+#    . /etc/rc.d/local_gui.d/${script}
+#done
+
+# Power saving tweaks:
+#if ! egrep -q -v '^Filename|^/dev/zram' /proc/swaps; then
+#    /opt/scripts/power_saver
+#fi
+
+if [ -e /var/run/portron.kp.reqpers ]; then
+
+    # requires persistence
+    echo "- requires persistence"
+
+    if [ ! -e /var/run/portron.persistence ]; then
+
+        # but dont have persistence
+
+        # also requires network?
+        [ -e /var/run/portron.kp.reqnet ] && {
+            echo "- requires also network so setup network first"
+            checknetwork yes
+        }
+
+        echo "- running wizard for installing system"
+        exec ${CMD_RUN_WIZARD_INSTALL} force
+
+    else
+
+        echo "- ... and persisstence I have"
+        checknetwork yes
+
+    fi
+
+else
+
+    # does not require persistence
+    echo "- does not require persistence"
+
+fi
+
+echo "* Persistence resolved, resolving network"
+
+if [ -e /var/run/portron.kp.disnet ]; then
+
+    echo "- network disabled"
+
+else
+
+    echo "- network required"
+    checknetwork yes
+
+fi
+
+# Delete unneeded utilities and logs:
+rm -rf /tmp/log
+
+# Booting is finished - start application:
+
+for script in `ls -1 /etc/rc.d/local_app.d`; do
+    echo "- running appscript {$script}"
+    . /etc/rc.d/local_app.d/${script}
+done
+
+echo "- idle"

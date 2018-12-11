@@ -1,0 +1,19 @@
+#!/bin/sh
+
+setupsleep() {
+
+    # Freeze/standby/suspend/shutdown system in case when no activity is detected:
+    #FREEZEIDLE=300
+    #STANDBYIDLE=300
+    #SUSPENDIDLE=300
+    #SHUTDOWNIDLE=300
+
+    if [ "$FREEZEIDLE" ]; then /opt/scripts/freeze-idle-watcher &
+    elif [ "$STANDBYIDLE" ]; then /opt/scripts/standby-idle-watcher &
+    elif [ "$SUSPENDIDLE" ]; then /opt/scripts/suspend-idle-watcher &
+    elif [ "$SHUTDOWNIDLE" ]; then /opt/scripts/shutdown-idle-watcher &
+    fi
+
+}
+
+setupsleep

@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Default settings:
+echo '#quick_modifiers 0
+#shift_lock 0
+#altgr_lock 0
+#modifiers_lock 0
+#key_click 0
+#autoclick 0
+#always_on_top 1
+#wm_toolbar 0
+#jump_pointer 0
+#dict_file /usr/share/dict/words
+' > /root/.xvkbd
+
+# Allow moving of the windows:
+if grep -q "Disable following mousebinding" /etc/xdg/openbox/rc.xml; then
+
+sed -i '/"Frame"/i \
+  <!-- Allow moving of the windows --> \
+  <context name="Titlebar"> \
+    <mousebind button="Left" action="Drag"> \
+      <action name="Move"/> \
+    </mousebind> \
+  </context> \
+' /etc/xdg/openbox/rc.xml
+openbox --reconfigure
+# Make sure its added only once:
+sed -i 's/Disable following mousebinding/Disable following mouusebinding/' /etc/xdg/openbox/rc.xml
+fi
+
+# Start vk:
+xvkbd -no-keypad -geometry 900x250+500+770 &

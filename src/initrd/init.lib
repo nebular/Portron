@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+enablenetwork() {
+
+    logme "- enabling network"
+    lspci | grep -q "0200: 14e4:1692" && ./busybox modprobe broadcom 2>/dev/null # BCM57780 quirk
+    for module in `lspci | grep 0200: | cut -d: -f3-4 | sed s/:/d0000/g`; do ${MODPROBE} `grep -i ${module} /lib/modules/$(uname -r)/modules.alias 2>/dev/null | tail -n1 | rev | cut -d" " -f1 | rev` 2>/dev/null; done
+
+    ls /sys/class/net | grep -q eth || {
+        for module in `find /lib/modules/$(uname -r)/kernel/drivers/net -name "*.ko" 2>/dev/null | sed 's/.ko//g'`; do
+            ${MODPROBE} `basename ${module}` 2>/dev/null
+            ls /sys/class/net | grep -q eth && break
+        done
+    }
+
+}
+
+enableopenssl() {
+    rm -f /usr/lib
+    ln -s /union/usr/lib64 /usr/lib
+    ln -s /union/etc/ssl /etc/ssl
+    ln -s /union/usr/bin/openssl /usr/bin/openssl
+    ln -s /union/usr/bin/tar /usr/bin/tar
+}
+
+enablekeyboard() {
+
+    logme "- loading keyboard modules"
+
+    ${MODPROBE} i8042
+ 	${MODPROBE} atkbd
+
+	if ! grep -q '^H:.*kbd' /proc/bus/input/devices ; then
+
+		# no keyboard? Try USB.
+
+		${MODPROBE} ehci-hcd
+		${MODPROBE} uhci-hcd
+		${MODPROBE} ohci-hcd
+		${MODPROBE} usbhid
+        ${MODPROBE} hid_generic
+        ${MODPROBE} hid_lenovo
+
+	fi
+
+    stty echo
+
+}
+
+# $1 MNTXZM
+video_setup() {
+
+    MNTXZM=$1
+
+    mkdir -p /lib /opt/000 /opt/001
+    lspci >/tmp/lspci
+    mount -o loop ${MNTXZM}/000-kernel.xzm /opt/000
+    mount -o loop ${MNTXZM}/001-core.xzm /opt/001
+    ln -sf /opt/000/lib/firmware /lib/firmware
+    ln -sf /opt/000/lib/modules /lib/modules
+    ln -sf /opt/001/lib64/libc.so.6 /lib/libc.so.6
+    ln -sf /opt/001/lib64/ld-linux-x86-64.so.2 /lib/ld-linux-x86-64.so.2
+    ln -s /opt/001/bin/kmod /bin/modprobe
+
+}
+
+video_init() {
+
+    vga=`lspci | grep 0300: | head -n1 | cut -d: -f3-4 | sed s/:/d0000/g`
+    driver="$(grep -i ${vga} /lib/modules/`uname -r`/modules.alias 2>/dev/null | head -n1 | rev | cut -d" " -f1 | rev)"
+
+    # Nvidia quirk:
+    [ "${driver}" ] || { lspci | grep 0300: | head -n1 | cut -d: -f3 | grep -q "10de" && driver=nouveau; }
+
+    # VirtualBox quirk:
+    [ "${driver}" = vboxvideo ] ||  ${MODPROBE} ${driver} 2>/dev/null
+
+    logme "- video driver ${driver}"
+
+}
+
+video_splash() {
+
+    test -e /dev/fb0 || {
+        cp /opt/001/sbin/v86d /sbin
+        ${MODPROBE} uvesafb mode_option=1024x768-32
+    }
+
+    if test -e /dev/fb0; then
+    	rm -r /lib
+    	ln -sf /opt/001/lib64 /lib
+    	ln -sf /opt/001/usr/lib64 /usr/lib
+	    if test -e ${MNTDOC}/kiosk.jpg; then
+	        /opt/001/usr/bin/fbv -a -c -u -i -k -e -r ${MNTDOC}/kiosk.jpg 2>/dev/null &
+	    else
+	        /opt/001/usr/bin/fbv -a -c -u -i -k -e -r ${MNTDOC}/default.jpg 2>/dev/null &
+	    fi
+    fi
+
+}
+
+logme() {
+    [ "$quiet" ] || echo $2$1
+}
+
+setuserpassword() {
+    PASSWORD=`openssl passwd -1 -salt P0l10N "${2}"`
+    [ "${PASSWORD}" ] && {
+        usermod -R /union ${1} -p ${PASSWORD} 2>/dev/null
+        logme "- Setting ${1} password ${PASSWORD}"
+    }
+}

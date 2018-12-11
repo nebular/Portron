@@ -1,0 +1,3 @@
+#!/bin/sh
+#
+# Run local commands when GUI (Openbox) has just started

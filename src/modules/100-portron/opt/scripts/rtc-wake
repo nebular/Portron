@@ -1,0 +1,73 @@
+#!/bin/sh
+#
+# Setup RTC wakeup.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Variables:
+PTH=/usr/share/icons/oxygen/22x22
+planner=`grep ^rtc_wake /opt/scripts/extras | cut -d'=' -f2- | head -n1`
+abs=0
+
+# Functions:
+get_nday() {
+if [ $1 = Monday ]; then nday=Tuesday
+elif [ $1 = Tuesday ]; then nday=Wednesday
+elif [ $1 = Wednesday ]; then nday=Thursday
+elif [ $1 = Thursday ]; then nday=Friday
+elif [ $1 = Friday ]; then nday=Saturday
+elif [ $1 = Saturday ]; then nday=Sunday
+elif [ $1 = Sunday ]; then nday=Monday
+fi
+}
+
+# Sanity check:
+[ -e /sys/class/rtc/rtc0/wakealarm ] || { dunstify -u normal -i $PTH/status/dialog-warning.png "Wakeup alarm is not supported on this PC ..."; exit; }
+
+# Make sure that clock is synced through the NTP:
+sleep 40
+
+# Setup loop in case alarm expires:
+while true; do
+
+    # Find user definied wakup time:
+    day=`date +%A`
+    time=`echo "$planner" | egrep -o "$day-[^ ]+" | cut -d- -f2-`
+
+    if [ "`echo $time | sed s/://`" -gt "`date +'%H%M'`" ]; then
+	# Minutes to wakeup:
+	hour=`echo $time | cut -d: -f1 | sed s/^0//g`
+        minute=`echo $time | cut -d: -f2 | sed s/^0//g`
+        min=$(echo $(($minute-`date +%M | sed s/^0//g`)))
+        hr=$(echo $(echo $(($hour-`date +%H | sed s/^0//g`)))*60)
+        minst=$(echo $(($min+$hr)))
+    else
+	# Skip to next day:
+	get_nday `date +%A`
+	time=`echo "$planner" | egrep -o "$nday-[^ ]+" | cut -d- -f2-`
+	while [ -z "$time" ]; do get_nday $nday; let abs=abs+1; time=`echo "$planner" | egrep -o "$nday-[^ ]+" | cut -d- -f2-`; done
+
+	# Days:
+	[ "$abs" -gt 0 ] && days=$((abs*1440)) || days=0
+
+	# Time to midnight:
+	hour=23
+	minute=60
+	htm=$(echo $(echo $(($hour-`date +%H | sed s/^0//g`)))*60)
+	mtm=$(echo $(($minute-`date +%M | sed s/^0//g`)))
+
+	# Time from midnight:
+	hfm=$((`echo $time | cut -d: -f1 | sed s/^0//g`*60))
+	mfm=`echo $time | cut -d: -f2 | sed s/^0//g`
+
+	# Minutes total:
+	minst=$(($days+$htm+$mtm+$hfm+$mfm))
+    fi
+
+    # Setup alarm:
+    echo 0 > /sys/class/rtc/rtc0/wakealarm
+    echo `date '+%s' -d "+ $minst minutes"` > /sys/class/rtc/rtc0/wakealarm
+
+    # Sleep:
+    sleep $(($minst+1))m
+
+done

@@ -1,0 +1,26 @@
+# Global settings:
+missingok
+notifempty
+delaycompress
+compress
+sharedscripts
+
+# Per log settings:
+/var/log/cron.log
+{
+	rotate 1
+	daily
+	postrotate
+		test -r /run/rsyslogd.pid && kill -HUP $(cat /run/rsyslogd.pid) &>/dev/null
+	endscript
+}
+
+/var/log/messages
+/var/log/remote.log
+{
+	rotate 4
+	size 1M
+	postrotate
+		test -r /run/rsyslogd.pid && kill -HUP $(cat /run/rsyslogd.pid) &>/dev/null
+	endscript
+}

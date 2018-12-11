@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# This file is executed by init when it goes into runlevel
+# 0 (halt) or runlevel 6 (reboot).
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Run local commands:
+for script in `ls -1 /etc/rc.d/local_shutdown.d`; do . /etc/rc.d/local_shutdown.d/$script; done
+
+# Kill remaining processes:
+PID=`ps | sed '/{rc./q' | egrep -v '\[.*\]|PID|\{rc.' | sed -r "s/^ *([0-9]+).*/\\1/" | tr "\n" " "`
+kill `echo $PID` >/dev/null 2>&1
+
+SLEEP=5; PID=`ps | sed '/{rc./q' | egrep -v '\[.*\]|PID|\{rc.' | sed -r "s/^ *([0-9]+).*/\\1/" | tr "\n" " "`
+while [ "$PID" -a $SLEEP -gt 1 ]; do
+    sleep 1
+    SLEEP=$((SLEEP-1))
+    PID=`ps | sed '/{rc./q' | egrep -v '\[.*\]|PID|\{rc.' | sed -r "s/^ *([0-9]+).*/\\1/" | tr "\n" " "`
+done
+
+# Just in case:
+kill -9 `echo $PID` >/dev/null 2>&1
+sync
+
+# Deactivate swapfile:
+[ -e /opt/storage/swapfile ] && swapoff /opt/storage/swapfile 2>/dev/null
+
+# Unmount everything:
+umount -alt no,proc,aufs 2>/dev/null
+
+# Do halt or reboot depending on how the script was called:
+[ "$0" = /etc/rc.d/rc.6 ] && reboot -f || poweroff -f

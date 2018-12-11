@@ -1,0 +1,19 @@
+#!/bin/sh
+
+[ -f /usr/sbin/sshd ] && {
+
+    # Accept new (incoming) connections on following ports:
+    iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT
+
+    # Start SSH daemon:
+    if [ -z "`pidof sshd`" ]; then
+
+        logger "* Starting SSH"
+        mkdir /dev/pts 2>/dev/null && mount -o mode=0620,gi d=5 -nt devpts devpts /dev/pts
+        ssh-keygen -A
+        /usr/sbin/sshd
+
+    else
+        echo "SSH daemon is started already"
+    fi
+}

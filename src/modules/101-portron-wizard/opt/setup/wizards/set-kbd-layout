@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+# Keyboard layout setup.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+export KBDLAYOUT='
+<window title="User input" icon-name="kiosk" resizable="false" width-request="700">
+<vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Primary keyboard layout</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="660" wrap="true"><label>Choose a keyboard layout from the list:</label></text>
+        <list>
+                <width>640</width>
+                <height>350</height>
+                <variable>tz</variable>
+                <input file>/opt/scripts/files/wizard/keyboards.txt</input>
+                <action>echo primary_keyboard_layout=$tz > /tmp/knet/keyboard1.txt</action>
+        </list>
+	<hbox>
+        <button can-default="true" has-default="true">
+                <label>Ok</label>
+                <input file icon="gtk-yes"></input>
+                <action function="exit">finished</action>
+        </button>
+        </hbox>
+</vbox>
+</window>
+'
+gtkdialog -p KBDLAYOUT > /tmp/knet/keyboard-layout
+
+PTH=/usr/share/icons/oxygen/22x22
+scode=`cat /tmp/knet/keyboard1.txt | cut -d" " -f1 | sed 's/(/:/' | sed 's/)//' `
+echo "$scode" > /tmp/knet/keyboard1.tmp
+layout=`echo $scode | cut -d= -f2-`
+
+if [ -z "$layout" ]; then
+    dunstify -u low -i $PTH/status/dialog-information.png "No layout selected"
+    rm -f /tmp/knet/keyboard1.tmp
+else
+    echo $layout | grep -q ':' && { var="`echo $layout | cut -d: -f2`"; lay=`echo $layout | cut -d: -f1`; }
+    if [ "$var" ]; then
+	setxkbmap -layout $lay -variant $var
+    else
+	setxkbmap -layout $layout
+    fi
+    dunstify -u low -i $PTH/actions/dialog-ok-apply.png "Switched keyboard layout to $layout"
+fi
+rm -f /tmp/knet/keyboard-layout /tmp/knet/keyboard1.txt

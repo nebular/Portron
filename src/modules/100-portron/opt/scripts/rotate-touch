@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Rotate touch to the posiiton of the screen.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Exit if no argument provided:
+[ "$1 " ] || { echo "Need an argument - exiting ..."; exit; }
+
+# Rotate touch according to the screen position:
+xinput_calibrator --list | rev | cut -d'=' -f1 | rev | while read device; do
+    if [ $1 = normal ]; then rtouch="1 0 0 0 1 0 0 0 1"
+    elif [ $1 = left ]; then rtouch="0 -1 1 1 0 0 0 0 1"
+    elif [ $1 = right ]; then rtouch="0 1 0 -1 0 1 0 0 1"
+    elif [ $1 = inverted ]; then rtouch="-1 0 1 0 -1 1 0 0 1"
+    fi
+    xinput set-prop $device 'Coordinate Transformation Matrix' $rtouch
+done

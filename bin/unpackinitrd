@@ -1,0 +1,11 @@
+#!/bin/sh
+
+[ -f $1.xz ] && {
+
+    mkdir src.$1
+    cd src.$1
+    xz -d < ../$1.xz | cpio -i
+
+}
+
+

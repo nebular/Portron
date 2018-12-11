@@ -1,0 +1,58 @@
+#!/bin/bash
+
+an=$0
+xzmfile=$1
+destination=$2
+appname=$3
+image=$4
+
+distro=../lib/$5
+
+xzmfile="$(cd "$(dirname "${xzmfile}")"; pwd)/$(basename "${xzmfile}")"
+image="$(cd "$(dirname "${image}")"; pwd)/$(basename "${image}")"
+destination="$(cd "$(dirname "${destination}")"; pwd)/$(basename "${destination}")"
+distro="$(cd "$(dirname "${distro}")"; pwd)/$(basename "${distro}")"
+
+
+error() {
+    echo "${an}, Builds a Porteus bootable distro from a XZM module"
+    echo "- USAGE: ${an} electronapp.xzm destination.iso app_short_name app_splash_image.jpg distro_name"
+    echo $1
+}
+
+if [ "${appname}" ]; then
+
+    [ -f "${image}" ] && {
+
+        [ -d ${distro} ] && {
+
+            echo "-------------------------------------------------"
+            echo "xzm2iso, Building Porteus distro ${4} from XZM module"
+
+            echo "- source XZM ${xzmfile}"
+            echo "- source distro ${distro}"
+            echo "- Target ISO ${destination}"
+            echo "- App Name ${appname}, image ${image}"
+
+            echo "-------------------------------------------------"
+
+            BASE="$(cd "$(dirname "$0")"; pwd)"
+            cd ${BASE}/xzm2iso
+
+            [ -f ${xzmfile} ] && {
+                ./1-copy-xzm.sh ${xzmfile} ${distro} ${image}
+                ./2-make-iso.sh ${appname} ${distro} ${destination}
+            } || {
+                error "- XZM not found"
+            }
+        } || {
+            error "- no base distro specified"
+        }
+
+    } || {
+        error "- no image specified"
+    }
+else
+    error "- no appname specified"
+fi
+

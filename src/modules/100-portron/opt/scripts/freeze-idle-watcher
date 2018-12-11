@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# Freeze idle watcher.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+FREEZEIDLE=`grep FREEZEIDLE= /etc/xdg/openbox/autostart | cut -d= -f2`
+
+while [ 1 ]; do
+    idle=$(echo `xprintidle` | sed s/...$//); [ "$idle" ] || idle=1
+    if [ $idle -gt $FREEZEIDLE ]; then
+	dunstify -u normal -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "No activity detected in last $(($FREEZEIDLE/60)) minutes. System will freeze in 5 seconds..."
+	sleep 5
+	idle=$(echo `xprintidle` | sed s/...$//); [ "$idle" ] || idle=1
+	[ $idle -gt $FREEZEIDLE ] && { xdotool key Menu; echo freeze > /sys/power/state; } || sleep $(($FREEZEIDLE-$idle))
+    else
+	sleep $(($FREEZEIDLE-$idle))
+    fi
+done

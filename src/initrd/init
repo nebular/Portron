@@ -1,0 +1,297 @@
+#!/bin/sh
+
+export MODPROBE="/union/sbin/modprobe"
+
+. init.config
+. init.lib
+
+#
+# Porteus Kiosk initialization script.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+RED="[1;31m"
+
+FLAGFILE=docs/image.md5
+FLAGFOLDER=conf
+
+
+# Install busybox applets then mount /proc, /sys and devtmpfs required for booting:
+/bin/busybox --install -s
+
+stty -echo
+echo -e "\e[?25l"
+
+mount -nt proc proc /proc
+echo 0 >/proc/sys/kernel/printk 2>/dev/null
+
+clear
+
+mount -nt sysfs sysfs /sys
+mount -nt devtmpfs none /dev
+mkdir -p /dev/shm
+chmod 1777 /dev/shm
+
+# Variables:
+grep -q -w debug /proc/cmdline || quiet=yes
+
+i=`echo "[1;33m""^ ""[0m"`
+IP=`egrep -o "http_server=[^ ]+" /proc/cmdline | cut -d= -f2-`
+
+
+
+# Functions:
+
+# search boot device
+search() {
+
+    FND=none
+
+    for x in `blkid 2>/dev/null | grep 'TYPE="iso9660"' | cut -d: -f1 | cut -d/ -f3 | tac`; do
+
+        # Perform booting from removable device check:
+        if [ "`grep -w boot_from_usb /proc/cmdline`" ]; then
+
+            # Remove partition to find device name:
+            [ "`echo ${x} | grep "2$"`" ] && {
+                [ "`echo ${x} | cut -c1-3`" = mmc ] && bdev=`echo ${x} | sed "s/p2$//"` || bdev=`echo ${x} | sed "s/2$//"`
+            } || bdev=${x}
+
+            if grep -q 1 /sys/block/${bdev}/removable 2>/dev/null; then
+
+                [ -d /mnt/${x} ] || {
+                    mkdir /mnt/${x}
+                    mount -n /dev/${x} /mnt/${x} 2>/dev/null
+                }
+
+                [ -f /mnt/${x}/${FLAGFILE} ] && {
+                    rmdir /mnt/* 2>/dev/null
+                    DEV=${x}
+                    FND=yes
+                    break
+                } || umount -n /mnt/${x} 2>/dev/null
+            fi
+
+        else
+
+            [ -d /mnt/${x} ] || {
+                mkdir /mnt/${x}
+                mount -n /dev/${x} /mnt/${x} 2>/dev/null
+            }
+
+            [ -f /mnt/${x}/${FLAGFILE} ] && {
+                rmdir /mnt/* 2>/dev/null
+                DEV=${x}
+                FND=yes
+                break
+            } || umount -n /mnt/${x} 2>/dev/null
+        fi
+    done
+
+    [ ${FND} = yes ];
+
+}
+
+# repeat search 20 times
+
+lazy() {
+    SLEEP=20
+    while [ ${SLEEP} -gt 0 -a ${FND} = none ]; do
+        lazy_nap
+        let SLEEP=SLEEP-1
+        search
+    done
+}
+
+lazy_nap() {
+    [ ${SLEEP} -lt 11 ] && echo -en ${i}"[1m""device not ready yet? delaying [1;33m${SLEEP}[0m[1m seconds              \r""[0m"
+    sleep 1
+}
+
+# exit
+
+escape() {
+    umount -nl /mnt/${DEV} 2>/dev/null
+    sleep 10
+    /sbin/poweroff -f
+}
+
+fs_init() {
+    # Changes always in memory:
+    mount -nt tmpfs -o size=75% tmpfs /memory
+    mkdir -p /memory/xino /memory/changes /memory/images /memory/copy2ram
+}
+
+
+boot_pxe() {
+
+    logme "- attempting PXE boot"
+    lspci | grep -q "0200: 14e4:1692" && ./busybox modprobe broadcom 2>/dev/null # BCM57780 quirk
+    for module in `lspci | grep 0200: | cut -d: -f3-4 | sed s/:/d0000/g`; do ./busybox modprobe `grep -i $module /lib/modules/$(uname -r)/modules.alias 2>/dev/null | tail -n1 | rev | cut -d" " -f1 | rev` 2>/dev/null; done
+    ls /sys/class/net | grep -q eth || { for module in `find /lib/modules/$(uname -r)/kernel/drivers/net -name "*.ko" 2>/dev/null | sed 's/.ko//g'`; do ./busybox modprobe `basename $module` 2>/dev/null; ls /sys/class/net | grep -q eth && break; done; }
+
+    ./busybox udhcpc >/dev/null || . fatal
+    logme "downloading kiosk data from the server" ${i}
+    
+    MNTXZM=/memory/copy2ram
+
+    MNTDOC=/mnt/net/docs
+    MNTCONF=/mnt/net/conf
+    MNTISO=/mnt/net
+    
+    mkdir -p ${MNTDOC}
+    cd ${MNTDOC}
+    
+    /busybox wget -q http://${IP}/docs/default.jpg http://${IP}/${FLAGFILE} http://${IP}/docs/version
+    /busybox wget -q http://${IP}/docs/kiosk.jpg 2>/dev/null
+
+    cd ${MNTCONF}
+    /busybox wget -q http://${IP}/conf/${MAC} 2>/dev/null
+    cd /
+
+    for x in `/busybox wget -q -O- http://${IP}/xzm | tr " " "\n" | grep -i "href.*.xzm</" | cut -d">" -f2 | cut -d"<" -f1`; do
+        echo "$x" >>/tmp/modules-pxe
+    done
+
+    grep -q xzm /tmp/modules-pxe 2>/dev/null && rm -rf /lib || {
+        echo "${RED}HTTP server not accessible? - exiting ...""[0m"
+        escape;
+    }
+
+    NUM=`grep -c '.' /tmp/modules-pxe 2>/dev/null`
+    for y in `cat /tmp/modules-pxe 2>/dev/null`; do
+        [ "$quiet" ] || echo -en "[1;33m""  ($NUM modules left)  \r""[0m"
+        let NUM=NUM-1
+        /busybox wget -q -O ${MNTXZM}/${y} http://${IP}/xzm/${y} 2>/dev/null
+    done
+}
+
+boot_normal() {
+
+    # Make sure that optical media are initialized:
+    for x in /dev/sr*; do blkid ${x} >/dev/null; done
+    # Search for *.sgn file:
+    search || lazy || . fatal
+
+    MNTXZM=/mnt/${DEV}/xzm
+    MNTDOC=/mnt/${DEV}/docs
+    MNTCONF=/mnt/${DEV}/conf
+    MNTISO=/mnt/${DEV}
+
+    logme "- booting from ${DEV}"
+
+}
+
+
+boot() {
+
+    [ "`grep -w initrd_debug /proc/cmdline`" ] && {
+        escapetoshell
+    }
+
+    # Finish:
+    exec /sbin/switch_root /union /sbin/init
+
+}
+
+escapetoshell() {
+
+    echo -e "${RED}Feel free to take a look at the backroom! Type EXIT to resume."
+    echo
+
+    enablekeyboard
+    stty echo
+    /bin/busybox sh
+
+}
+
+aufs_setup() {
+
+    # Setup aufs:
+    mount -nt aufs -o nowarn_perm,xino=/memory/xino/.aufs.xino,br:/memory/changes=rw aufs /union
+
+    # Copy modules to RAM if we are not doing PXE boot:
+    [ "$IP" ] || {
+        for x in ${MNTXZM}/*; do
+            logme "- loading ${x}"
+            cp -a ${x} /memory/copy2ram || {
+                echo -e "${RED}\nNot enough memory to copy all kiosk data - we can't continue, exiting....""[0m"
+                escape
+            }
+        done
+    }
+
+    # Populate aufs with modules:
+    for x in `ls -1 /memory/copy2ram | grep \\.xzm$`; do
+        mkdir -p /memory/images/${x}
+        mount -nt squashfs -o loop /memory/copy2ram/$x /memory/images/$x 2>/dev/null
+        if [ $? -eq 0 ]; then
+            mount -no remount,add:1:/memory/images/$x=rr aufs /union
+        else
+            echo ${i}"[1;36m""Cannot read $x. Corrupted module?""[0m"
+            echo -e "${RED}\nPlease burn the Kiosk ISO once again, exitig now...""[0m"
+            escape
+        fi
+    done
+
+}
+
+aufs_copyshit() {
+
+    # Copy important stuff to union:
+
+    [ "$quiet" ] && {
+        while [ "`pidof fbv`" ]; do usleep 500000; done
+        umount /opt/000 /opt/001 2>/dev/null
+        rm -r /lib
+    }
+
+    echo "${version}" > /union/etc/version
+    cp -a /bin/busybox /union/bin
+    ln -sf /union/lib /lib
+    cp -a ${MNTDOC}/default.jpg /union/usr/share/wallpapers 2>/dev/null
+
+}
+
+################################################################################################
+
+## Let's start!
+
+[ "$quiet" ] || {
+    clear
+    echo "[1m""Starting Portron""[0m"
+}
+
+fs_init
+
+# Check if we are booting over network:
+
+if [ "$IP" ]; then
+    boot_pxe
+else
+    boot_normal
+fi
+
+
+if [ -z "$quiet" ]; then
+
+    echo -en "                                                                        \r"
+
+else
+
+    video_setup ${MNTXZM}
+    video_init
+    video_splash
+
+fi
+
+aufs_setup
+aufs_copyshit
+
+enablenetwork
+loadfixedconfig ${MNTISO} ${DEV}
+processprivilegedconfig
+exportkernelparams
+
+umount -n /mnt/${DEV} 2>/dev/null
+
+boot

@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Init Network
+# called from rc.openbox on startup and network wizard
+
+# Initialize loopback interface:
+ifconfig lo 127.0.0.1 2>/dev/null
+route add -net 127.0.0.0 netmask 255.0.0.0 lo 2>/dev/null
+
+. /opt/bin/loadvalues NET
+
+[ -f ${NEO_CFG_HASNET} ] && {
+
+    /opt/setup/network/gensupplicant.sh
+
+    # Set hostname:
+    hostname ${NET_HOSTNAME}
+
+    # Wait till required interface is up:
+    #iface=none
+
+    TRIES=10
+    if [ "${NET_iface}"  ]; then
+        while [ ${TRIES} -gt 0 ]; do ls -1 /sys/class/net | grep -q ${NET_iface} && break || { TRIES=$((TRIES-1)); sleep 1; }; done
+    else
+        if [ "${NET_CONNECTION}" = wired ]; then
+            while [ ${TRIES} -gt 0 ]; do [ "$(iwconfig 2>&1 | grep 'no wireless extension' | grep -v lo | cut -d" " -f1 | sed '/^$/d')" ] && break || { TRIES=$((TRIES-1)); sleep 1; }; done
+        else
+            while [ ${TRIES} -gt 0 ]; do [ "$(iwconfig 2>/dev/null | cut -d" " -f1 | sed '/^$/d')" ] && break || { TRIES=$((TRIES-1)); sleep 1; }; done
+        fi
+    fi
+
+    # Start networking:
+    rfkill unblock all 2>/dev/null
+
+    for nic in `iwconfig 2>/dev/null | cut -d" " -f1 | sed /^$/d | sort`; do
+        ifconfig ${nic} up
+        iwconfig ${nic} essid "${NET_ssid}" 2>/dev/null
+        wpa_supplicant -B -i${nic} -c ${NEO_GEN_NETSUPPLICANT} -Dnl80211,wext > /dev/null 2>&1
+    done
+
+    for x in `ls -1 /sys/class/net | grep -v ^lo`; do
+        dhcpcd -L -t 0 ${x} >/dev/null 2>&1 &
+    done
+
+
+    # Run local commands which depends on the network availability:
+    for script in `ls -1 /etc/rc.d/local_net.d`; do
+        . /etc/rc.d/local_net.d/${script};
+    done
+
+    touch /var/run/portron.net.started
+
+} || {
+    echo "- network not configured."
+    rm /var/run/portron.net.started
+}

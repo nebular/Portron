@@ -1,0 +1,7 @@
+This state offers minimal, power savings while
+providing a very low-latency transition back to
+a working system.
+
+No operating state is lost (CPU retains power),
+so the system easily starts up again in the same
+state that it left off.

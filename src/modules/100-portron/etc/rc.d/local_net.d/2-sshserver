@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Modified: Rodolfo Lopez <rlp@nebular.tv>
+
+# sshd package installed?
+[ -f /usr/bin/sshd ] && {
+
+    # ssh password is set?
+    if [ -f /var/run.portron.ssh ]; then
+
+        # daemon is not started
+        [ ! -f /var/run/portron.sshd ] && {
+
+            # Accept new (incoming) connections on following ports:
+            iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT
+
+            # Start SSH daemon:
+            if [ -z "`pidof sshd`" ]; then
+
+                mkdir /dev/pts 2>/dev/null && mount -o mode=0620,gi d=5 -nt devpts devpts /dev/pts
+                ssh-keygen -A
+                /usr/sbin/sshd
+                touch /var/run/portron.sshd
+
+            else
+                echo "SSH daemon is started already"
+            fi
+        }
+    fi
+}
+

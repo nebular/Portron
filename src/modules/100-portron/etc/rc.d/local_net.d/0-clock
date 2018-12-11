@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Modified: Rodolfo Lopez <rlp@nebular.tv>
+
+setupclock() {
+
+    # Pull time from NTP server and set hardware clock to system time:
+    ( ntpdate pool.ntp.org && hwclock --utc -w; ) &
+}
+
+
+setupclock

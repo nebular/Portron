@@ -1,0 +1,29 @@
+#!/bin/sh
+
+setupinput() {
+
+    if [ "${CFG_NOINPUT}" ]; then
+        xinput | egrep -v 'Virtual core| Button' | cut -d= -f2 | cut -d[ -f1 | while read line; do xinput --disable $line 2>/dev/null; done
+    else
+        # Set keyboard mapping:
+        setxkbmap -layout ${CFG_KEY_LAYOUT}, -variant ${CFG_KEY_LAYOUT_ALT}, 2>/dev/null
+
+        if [ "${CFG_MOUSE_RIGHTCLICK}" ]; then
+            # Disable right mouse click:
+            xmodmap -e "pointer = 1 2 32 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 3"
+        fi
+
+        if [ "${CFG_MOUSE_AUTOHIDE}" ]; then
+            # Autohide mouse pointer after X seconds of inactivity:
+            hhpc -i ${CFG_MOUSE_AUTOHIDE} &
+        fi
+
+        if [ "${CFG_KEY_NUMLOCK}" ]; then
+            # Enable numlock:
+            xdotool key Num_Lock
+        fi
+    fi
+
+}
+
+setupinput

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# calibrate input devices to match provided monitor in $1
+
+TMP=/tmp/cali
+PATH=$PATH:/usr/bin:/bin
+
+[ -d ${TMP} ] || mkdir ${TMP}
+
+# mapToTouch touchdev monitor
+mapTouch() {
+    xinput map-to-output ${1} ${2}
+}
+
+monitor=${1}
+
+[ "${monitor}" ] && {
+
+    xinput_calibrator --list > /tmp/cali.list
+
+    while IFS='' read -r line || [[ -n "$line" ]]; do
+
+        echo ${line} | egrep -o " id=[^ ]+" | cut -d= -f2 | while read pc; do
+            name=`echo ${line} | cut -d'"' -f2`
+            echo "- Calibrating device: ${pc}, name ${name}, map to monitor ${monitor}"
+            mapTouch ${pc} ${monitor}
+        done
+
+    done < /tmp/cali.list
+}
+

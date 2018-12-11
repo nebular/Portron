@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Shutdown PC gracefully:
+init 0

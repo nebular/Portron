@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Apply power saving tweaks.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Spin down everything we can. Never remove optical devices if removable media support is enabled:
+if grep -q ^removable=yes /etc/xdg/openbox/autostart; then
+    for drive in `ls -1 /sys/block | egrep -v '^loop|^sr'`; do echo 1 > /sys/block/$drive/device/delete; done
+else
+    for drive in `ls -1 /sys/block | grep -v ^loop`; do echo 1 > /sys/block/$drive/device/delete; done
+fi

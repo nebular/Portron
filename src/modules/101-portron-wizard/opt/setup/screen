@@ -1,0 +1,405 @@
+#!/bin/sh
+
+#
+# Display config for Porteus Kiosk
+#
+# Author: brokenman@porteus.org
+# Refactored: rlp@nebular.tv 2018
+#
+
+## Bring defults:
+xrandr --auto 2>/dev/null
+rm -f /opt/scripts/files/delete_screen_config
+
+export tmpdir=/tmp/xres$$
+
+cleanup() { rm -rf ${tmpdir} /tmp/vars.txt 2>/dev/null; exit; }
+trap cleanup SIGHUP SIGINT SIGTERM
+
+## Setup temp dir
+mkdir ${tmpdir}
+xrandr 2>/dev/null | sed -e 's/+//g' -e 's/\*//g' > ${tmpdir}/output.txt
+op=${tmpdir}/output.txt
+
+## Create file of connected displays
+grep -w "connected" ${op} | cut -d' ' -f1 > ${tmpdir}/displays.txt
+xdis=${tmpdir}/displays.txt
+discnt=`wc -l <${tmpdir}/displays.txt`
+
+update_position() {
+if [ "$2" = "false" ]; then
+	for a in ${tmpdir}/*.ddd; do
+		sed '/'$1'/d' ${a} > ${a}.new
+		cp ${a}.new ${a} && rm ${a}.new
+	done
+else
+	for a in `ls ${tmpdir}/*.ddd|sed '/'$1'/d'`; do
+		b=${a%d}
+		grep $1 ${b} >> ${a}
+	done
+fi
+};
+
+export update_position
+
+WIZARD_SCREEN='
+<window title="Kiosk Wizard" icon-name="kiosk" window_position="1" width-request="1000">
+<vbox margin="10">
+	<text xalign="0" width-request="800"><label>Note: if monitor screen is not covered in full in single-head setup then its necessary to disable one of the video outputs - usually its LVDS.</label></text>
+	<text><label>""</label></text>
+	'`if [ $(wc -l < ${xdis}) -gt 0 ]; then
+		[ $(wc -l < ${xdis}) -gt 1 ] && multiD=true || multiD=false
+		dis1=$(head -n1 < ${xdis})
+		echo "dis1:$dis1" > ${tmpdir}/dis.txt
+		sed -n '/'${dis1}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' > ${tmpdir}/${dis1}.out
+		head -n1 ${tmpdir}/${dis1}.out | cut -d' ' -f2- | tr ' ' '\n' | sort -rug | sed '/^$/d' > ${tmpdir}/${dis1}.rat
+		sed -n '/'${dis1}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' | cut -d' ' -f1 | sort -rg > ${tmpdir}/${dis1}.res
+		sed -i '/'${dis1}'/d' ${xdis}
+		[ $(ls -1 /sys/class/backlight|wc -l) -gt 0 ] && backlight=yes
+		echo "same as $dis1" > ${tmpdir}/${dis1}.pos
+		echo "above $dis1" >> ${tmpdir}/${dis1}.pos
+		echo "below $dis1" >> ${tmpdir}/${dis1}.pos
+		echo "left of $dis1" >> ${tmpdir}/${dis1}.pos
+		echo "right of $dis1" >> ${tmpdir}/${dis1}.pos
+		echo "<frame $dis1>
+		<hbox>
+			<checkbox sensitive="'"'${multiD}'"'">
+				<variable>dis1chk</variable>
+				<label>Enable</label>
+				<default>true</default>
+				<action>echo "'$dis1chk'" > ${tmpdir}/$dis1.chk</action>
+				<action>if false disable:cmbdis1res</action>
+				<action>if false disable:cmbdis1rat</action>
+				<action>if false disable:cmbdis1rot</action>
+				<action>if false disable:cmbdis1pos</action>
+				<action>if true enable:cmbdis1res</action>
+				<action>if true enable:cmbdis1rat</action>
+				<action>if true enable:cmbdis1rot</action>
+				<action>if true enable:cmbdis1pos</action>
+				<action>update_position '"${dis1}"' "'$dis1chk'"</action>
+			</checkbox>
+			<text width-request="'"20"'"><label>"'" "'" </label></text>
+			<text><label>Resolution:</label></text>
+			<comboboxtext>
+				<variable>cmbdis1res</variable>
+				<input file>${tmpdir}/$dis1.res</input>
+				<action signal="'"changed"'">grep "'"$cmbdis1res"'" ${tmpdir}/$dis1.out | cut -d' ' -f2- | tr ' ' '\n' | sed '/^$/d' | sort -rug > ${tmpdir}/$dis1.rat</action>
+			</comboboxtext>
+			<text><label>Rate:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis1rat</variable>
+				<input file>${tmpdir}/$dis1.rat</input>
+			</comboboxtext>
+			<text><label>Rotate:</label></text>
+			<comboboxtext>
+				<variable>cmbdis1rot</variable>
+				<item>normal</item>
+				<item>left</item>
+				<item>right</item>
+				<item>inverted</item>
+			</comboboxtext>
+			<text><label>Position:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis1pos</variable>
+				<input file>${tmpdir}/$dis1.ddd</input>
+			</comboboxtext>
+		</hbox>"
+		if [ "$backlight" = "yes" ]; then
+		echo "<hbox>
+			<text><label>\" Brightness:    \"</label></text>
+			<hscale width-request="'"450"'" height-request="'"40"'" range-value="'"100"'">
+				<variable>dis1bri</variable>
+			</hscale>
+		</hbox>"; fi
+	echo "</frame>"; fi`'
+	
+	
+	'`if [ $(wc -l < ${xdis}) -gt 0 ]; then
+		dis2=$(head -n1 < ${xdis})
+		echo "dis2:$dis2" >> ${tmpdir}/dis.txt
+		sed -n '/'${dis2}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' > ${tmpdir}/${dis2}.out
+		head -n1 ${tmpdir}/${dis2}.out | cut -d' ' -f2- | tr ' ' '\n' | sort -rug | sed '/^$/d' > ${tmpdir}/${dis2}.rat
+		sed -n '/'${dis2}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' | cut -d' ' -f1 | sort -rg > ${tmpdir}/${dis2}.res
+		sed -i '/'${dis2}'/d' ${xdis}
+		echo "same as $dis2" > ${tmpdir}/${dis2}.pos
+		echo "above $dis2" >> ${tmpdir}/${dis2}.pos
+		echo "below $dis2" >> ${tmpdir}/${dis2}.pos
+		echo "left of $dis2" >> ${tmpdir}/${dis2}.pos
+		echo "right of $dis2" >> ${tmpdir}/${dis2}.pos
+		echo "<frame $dis2>
+		<hbox>
+			<checkbox>
+				<variable>dis2chk</variable>
+				<label>Enable</label>
+				<default>true</default>
+				<action>echo "'$dis2chk'" > ${tmpdir}/$dis2.chk</action>
+				<action>if false disable:cmbdis2res</action>
+				<action>if false disable:cmbdis2rat</action>
+				<action>if false disable:cmbdis2rot</action>
+				<action>if false disable:cmbdis2pos</action>
+				<action>if true enable:cmbdis2res</action>
+				<action>if true enable:cmbdis2rat</action>
+				<action>if true enable:cmbdis2rot</action>
+				<action>if true enable:cmbdis2pos</action>
+				<action>update_position '"${dis2}"' "'$dis2chk'"</action>
+			</checkbox>
+			<text width-request="'"20"'"><label>"'" "'" </label></text>
+			<text><label>Resolution:</label></text>
+			<comboboxtext>
+				<variable>cmbdis2res</variable>
+				<input file>${tmpdir}/$dis2.res</input>
+				<action signal="'"changed"'">grep "'"$cmbdis2res"'" ${tmpdir}/$dis2.out | cut -d' ' -f2- |tr ' ' '\n' | sed '/^$/d' | sort -rug > ${tmpdir}/$dis2.rat</action>
+			</comboboxtext>
+			<text><label>Rate:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis2rat</variable>
+				<input file>${tmpdir}/$dis2.rat</input>
+			</comboboxtext>
+			<text><label>Rotate:</label></text>
+			<comboboxtext>
+				<variable>cmbdis2rot</variable>
+				<item>normal</item>
+				<item>left</item>
+				<item>right</item>
+				<item>inverted</item>
+			</comboboxtext>
+			<text><label>Position:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis2pos</variable>
+				<input file>${tmpdir}/$dis2.ddd</input>
+			</comboboxtext>
+		</hbox>
+		</frame>"; fi`'
+		
+		'`if [ $(wc -l < ${xdis}) -gt 0 ]; then
+		dis3=$(head -n1 < ${xdis})
+		echo "dis3:$dis3" >> ${tmpdir}/dis.txt
+		sed -n '/'${dis3}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' > ${tmpdir}/${dis3}.out
+		head -n1 ${tmpdir}/${dis3}.out | cut -d' ' -f2- | tr ' ' '\n' | sort -rug | sed '/^$/d'  > ${tmpdir}/${dis3}.rat
+		sed -n '/'${dis3}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' | cut -d' ' -f1 | sort -rg > ${tmpdir}/${dis3}.res
+		sed -i '/'${dis3}'/d' ${xdis}
+		echo "same as $dis3" > ${tmpdir}/${dis3}.pos
+		echo "above $dis3" >> ${tmpdir}/${dis3}.pos
+		echo "below $dis3" >> ${tmpdir}/${dis3}.pos
+		echo "left of $dis3" >> ${tmpdir}/${dis3}.pos
+		echo "right of $dis3" >> ${tmpdir}/${dis3}.pos
+		echo "<frame $dis3>
+		<hbox>
+			<checkbox>
+				<variable>dis3chk</variable>
+				<label>Enable</label>
+				<default>true</default>
+				<action>if false disable:cmbdis3res</action>
+				<action>if false disable:cmbdis3rat</action>
+				<action>if false disable:cmbdis3rot</action>
+				<action>if false disable:cmbdis3pos</action>
+				<action>if true enable:cmbdis3res</action>
+				<action>if true enable:cmbdis3rat</action>
+				<action>if true enable:cmbdis3rot</action>
+				<action>if true enable:cmbdis3pos</action>
+				<action>update_position '"${dis3}"' "'$dis3chk'"</action>
+			</checkbox>
+			<text width-request="'"20"'"><label>"'" "'" </label></text>
+			<text><label>Resolution:</label></text>
+			<comboboxtext>
+				<variable>cmbdis3res</variable>
+				<input file>${tmpdir}/$dis3.res</input>
+				<action signal="'"changed"'">grep "'"$cmbdis3res"'" ${tmpdir}/$dis3.out | cut -d' ' -f2- |tr ' ' '\n' | sed '/^$/d' | sort -rug > ${tmpdir}/$dis3.rat</action>
+			</comboboxtext>
+			<text><label>Rate:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis3rat</variable>
+				<input file>${tmpdir}/$dis3.rat</input>
+			</comboboxtext>
+			<text><label>Rotate:</label></text>
+			<comboboxtext>
+				<variable>cmbdis3rot</variable>
+				<item>normal</item>
+				<item>left</item>
+				<item>right</item>
+				<item>inverted</item>
+			</comboboxtext>
+			<text><label>Position:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis3pos</variable>
+				<input file>${tmpdir}/$dis3.ddd</input>
+			</comboboxtext>
+		</hbox>
+		</frame>"; fi`'
+		
+		'`if [ $(wc -l < ${xdis}) -gt 0 ]; then
+		dis4=$(head -n1 < ${xdis})
+		echo "dis4:${dis4}" >> ${tmpdir}/dis.txt
+		sed -n '/'${dis4}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' > ${tmpdir}/${dis4}.out
+		head -n1 ${tmpdir}/${dis4}.out | cut -d' ' -f2- | tr ' ' '\n' | sort -rug | sed '/^$/d'  > ${tmpdir}/${dis4}.rat
+		sed -n '/'${dis4}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' | cut -d' ' -f1 | sort -rg > ${tmpdir}/${dis4}.res
+		sed -i '/'${dis4}'/d' ${xdis}
+		echo "same as ${dis4}" > ${tmpdir}/${dis4}.pos
+		echo "above ${dis4}" >> ${tmpdir}/${dis4}.pos
+		echo "below ${dis4}" >> ${tmpdir}/${dis4}.pos
+		echo "left of ${dis4}" >> ${tmpdir}/${dis4}.pos
+		echo "right of ${dis4}" >> ${tmpdir}/${dis4}.pos
+		echo "<frame ${dis4}>
+		<hbox>
+			<checkbox>
+				<variable>dis4chk</variable>
+				<label>Enable</label>
+				<default>true</default>
+				<action>if false disable:cmbdis4res</action>
+				<action>if false disable:cmbdis4rat</action>
+				<action>if false disable:cmbdis4rot</action>
+				<action>if false disable:cmbdis4pos</action>
+				<action>if true enable:cmbdis4res</action>
+				<action>if true enable:cmbdis4rat</action>
+				<action>if true enable:cmbdis4rot</action>
+				<action>if true enable:cmbdis4pos</action>
+			</checkbox>
+			<text width-request="'"20"'"><label>"'" "'" </label></text>
+			<text><label>Resolution:</label></text>
+			<comboboxtext>
+				<variable>cmbdis4res</variable>
+				<input file>${tmpdir}/${dis4}.res</input>
+				<action signal="'"changed"'">grep "'"$cmbdis4res"'" ${tmpdir}/${dis4}.out | cut -d' ' -f2- |tr ' ' '\n' | sed '/^$/d' | sort -rug > ${tmpdir}/${dis4}.rat</action>
+			</comboboxtext>
+			<text><label>Rate:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis4rat</variable>
+				<input file>${tmpdir}/${dis4}.rat</input>
+			</comboboxtext>
+			<text><label>Rotate:</label></text>
+			<comboboxtext>
+				<variable>cmbdis4rot</variable>
+				<item>normal</item>
+				<item>left</item>
+				<item>right</item>
+				<item>inverted</item>
+			</comboboxtext>
+			<text><label>Position:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis4pos</variable>
+				<input file>${tmpdir}/${dis4}.ddd</input>
+			</comboboxtext>
+		</hbox>
+		</frame>"; fi`'
+
+		'`if [ $(wc -l < ${xdis}) -gt 0 ]; then
+		dis5=$(head -n1 < ${xdis})
+		echo "dis5:${dis5}" >> ${tmpdir}/dis.txt
+		sed -n '/'${dis5}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' > ${tmpdir}/${dis5}.out
+		head -n1 ${tmpdir}/${dis5}.out | cut -d' ' -f2- | tr ' ' '\n' | sort -rug | sed '/^$/d'  > ${tmpdir}/${dis5}.rat
+		sed -n '/'${dis5}'/,/connect/p' ${op} | grep "\." | sed -e 's/  */\ /g' -e 's/^ *//g' | cut -d' ' -f1 | sort -rg > ${tmpdir}/${dis5}.res
+		sed -i '/'${dis5}'/d' ${xdis}
+		echo "same as ${dis5}" > ${tmpdir}/${dis5}.pos
+		echo "above ${dis5}" >> ${tmpdir}/${dis5}.pos
+		echo "below ${dis5}" >> ${tmpdir}/${dis5}.pos
+		echo "left of ${dis5}" >> ${tmpdir}/${dis5}.pos
+		echo "right of ${dis5}" >> ${tmpdir}/${dis5}.pos
+		echo "<frame ${dis5}>
+		<hbox>
+			<checkbox>
+				<variable>dis5chk</variable>
+				<label>Enable</label>
+				<default>true</default>
+				<action>if false disable:cmbdis5res</action>
+				<action>if false disable:cmbdis5rat</action>
+				<action>if false disable:cmbdis5rot</action>
+				<action>if false disable:cmbdis5pos</action>
+				<action>if true enable:cmbdis5res</action>
+				<action>if true enable:cmbdis5rat</action>
+				<action>if true enable:cmbdis5rot</action>
+				<action>if true enable:cmbdis5pos</action>
+			</checkbox>
+			<text width-request="'"20"'"><label>"'" "'" </label></text>
+			<text><label>Resolution:</label></text>
+			<comboboxtext>
+				<variable>cmbdis5res</variable>
+				<input file>${tmpdir}/${dis5}.res</input>
+				<action signal="'"changed"'">grep "'"$cmbdis5res"'" ${tmpdir}/${dis5}.out | cut -d' ' -f2- |tr ' ' '\n' | sed '/^$/d' | sort -rug > ${tmpdir}/${dis5}.rat</action>
+			</comboboxtext>
+			<text><label>Rate:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis5rat</variable>
+				<input file>${tmpdir}/${dis5}.rat</input>
+			</comboboxtext>
+			<text><label>Rotate:</label></text>
+			<comboboxtext>
+				<variable>cmbdis5rot</variable>
+				<item>normal</item>
+				<item>left</item>
+				<item>right</item>
+				<item>inverted</item>
+			</comboboxtext>
+			<text><label>Position:</label></text>
+			<comboboxtext file-monitor="'"true"'" auto-refresh="'"true"'">
+				<variable>cmbdis5pos</variable>
+				<input file>${tmpdir}/${dis5}.ddd</input>
+			</comboboxtext>
+		</hbox>
+		</frame>"; fi`'
+		
+		'`for a in ${tmpdir}/*.pos; do
+			b=${a%.*}
+			nam=${b##*/}
+			echo normal > ${b}.dd
+			cat ${tmpdir}/*.pos >> ${b}.dd
+			sed -i '/'${nam}'/d' ${b}.dd
+			cat ${b}.dd > ${b}.ddd
+		done
+		`'
+<hbox>
+	'"`if [ -e /opt/scripts/AP/ap ]; then
+                echo '<button can-default="true" has-default="true">
+                    <label>Restore default resolution</label>
+                    <input file>/usr/share/icons/oxygen/16x16/actions/edit-undo.png</input>
+                    <width>16</width>
+                    <action>touch /opt/scripts/files/delete_screen_config</action>
+                    <action function="exit">finished</action>
+                </button>'
+            fi`"'
+	<button>
+		<label>Test setup</label>
+		<input file icon="gtk-apply"></input>
+		<action>set > ${tmpdir}/vars.txt</action>
+		<action>test_screen</action>
+	</button>
+	<button>
+		<label>Ok</label>
+		<input file icon="gtk-ok"></input>
+		<action function="exit">finished</action>
+	</button>
+</hbox>
+</vbox>
+</window>
+'
+export WIZARD_SCREEN
+dump=${tmpdir}/dump
+gtkdialog -i /opt/setup/wizards/inc/wizard-functions -p WIZARD_SCREEN > ${dump}
+
+## Parse output:
+for a in dis1 dis2 dis3 dis4 dis5; do
+        if [ "`grep $a $dump`" ]; then
+                b=`grep ${a} ${tmpdir}/dis.txt|cut -d':' -f2`
+                if [[ `grep ${a}chk ${dump}|cut -d'"' -f2` = "false" ]]; then
+                        sset="$sset $b:disabled"
+                else
+                        ores=`grep cmb${a}res ${dump}|cut -d'"' -f2`
+                        oref=`grep cmb${a}rat ${dump}|cut -d'"' -f2`
+                        obri=`grep ${a}bri ${dump}|cut -d'"' -f2`
+                        [ -z ${obri} ] && obri=normal
+                        orot=`grep ${a}rot ${dump}|cut -d'"' -f2`
+                        opos=`grep ${a}pos ${dump}|cut -d'"' -f2|cut -d' ' -f1`
+                        [[ "$opos" = "normal" ]] || opos=`grep ${a}pos ${dump}|cut -d'"' -f2|tr ' ' '-'`
+                        sset="$sset $b:$ores:$oref:$obri:$orot:$opos"
+                fi
+        fi
+done
+
+# Add parameter (save settings for PK Server):
+sset=`echo ${sset} | sed 's/^\ //'`
+
+## If user closed window then cleanup
+grep "abort" ${dump} && cleanup
+
+/opt/bin/setscreen ${sset}
+
+

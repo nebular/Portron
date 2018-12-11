@@ -1,0 +1,17 @@
+#!/bin/sh
+
+. /etc/profile.d/portron
+
+get_config(){
+    [ -d ${NEO_CFG_ROOT_VAR} ] && {
+        cd ${NEO_CFG_ROOT_VAR}
+        for a in `ls -1 ${1}* 2>/dev/null`; do
+            export ${a}="`cat ${a}`"
+            echo "- loading ${a}"
+        done
+    }
+}
+
+ldir=`pwd`
+get_config $1
+cd ${ldir}

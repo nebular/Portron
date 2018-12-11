@@ -1,0 +1,7 @@
+[Desktop Entry]
+Exec=xdotool key Super_L+d
+Icon=user-desktop.png
+Type=Application
+Categories=System;
+Name=Show desktop
+MimeType=text/html;

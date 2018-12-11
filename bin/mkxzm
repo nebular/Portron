@@ -1,0 +1,22 @@
+#!/bin/bash
+
+error() {
+    echo "${name}, tool to create XZM modules from a directory"
+    echo "- USAGE: ${name} destination_module.xzm source_dir/"
+}
+
+destination=$1
+sourcedir=$2
+name=$0
+
+if [ "${sourcedir}" ]; then
+
+    [ -d ${sourcedir} ] && {
+        mksquashfs ${sourcedir} ${destination} -comp xz -b 256K -Xbcj x86 -noappend
+    } || {
+        error
+    }
+
+else
+    error
+fi

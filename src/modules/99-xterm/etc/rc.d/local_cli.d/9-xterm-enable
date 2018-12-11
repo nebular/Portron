@@ -1,0 +1,7 @@
+#!/bin/sh
+
+[ ! -e /dev/pts ] && {
+    mkdir /dev/pts
+    mount devpts /dev/pts -t devpts -o mode=620 &> /dev/null
+}
+

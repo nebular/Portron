@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# Suspend idle watcher
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+SUSPENDIDLE=`grep SUSPENDIDLE= /etc/xdg/openbox/autostart | cut -d= -f2`
+
+while [ 1 ]; do
+    idle=$(echo `xprintidle` | sed s/...$//); [ "$idle" ] || idle=1
+    if [ $idle -gt $SUSPENDIDLE ]; then
+	dunstify -u normal -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "No activity detected in last $(($SUSPENDIDLE/60)) minutes. System will suspend in 5 seconds..."
+	sleep 5
+	idle=$(echo `xprintidle` | sed s/...$//); [ "$idle" ] || idle=1
+	[ $idle -gt $SUSPENDIDLE ] && { xdotool key Menu; echo mem > /sys/power/state; } || sleep $(($SUSPENDIDLE-$idle))
+    else
+	sleep $(($SUSPENDIDLE-$idle))
+    fi
+done

@@ -1,0 +1,15 @@
+#!/bin/sh
+
+. /opt/bin/loadvalues CFG
+
+"${CFG_MOUSE_HIDE}" && XARGS=-nocursor
+
+# Run X11 startup helper:
+pidof watch-xorg >/dev/null && sleep 4 || /opt/scripts/watch-xorg 2>/dev/null &
+
+# Start GUI through /etc/X11/xinit/xinitrc script:
+while true; do
+    fecha=`date`
+    logger "* {$fecha} - Starting X"
+    su - -c "/usr/bin/startx -- -nolisten tcp ${XARGS} vt7 > /dev/null 2>&1"
+done

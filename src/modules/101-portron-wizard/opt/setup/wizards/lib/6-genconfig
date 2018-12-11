@@ -1,0 +1,76 @@
+#!/bin/sh
+
+value() {
+
+    grep "^$1=" /tmp/config | head -n1 | cut -d= -f2- | sed 's/[[:blank:]]*$//';
+}
+
+generate() {
+    val=`value ${4}`
+    generateVal "$1" $2 $3 "${val}"
+}
+
+generateVal() {
+
+    dest=${1}/${3}
+    delete=${2}
+    val=${4}
+    
+    if [ "${val}" ]; then 
+        echo "- generating $3 = ${val}"
+        echo "${val}" > ${dest}
+    else
+        # not existent value
+        if [ "${delete}" = yes ]; then
+            rm ${dest}
+        fi
+    fi
+
+}
+
+writevalues() {
+
+    [ -d ${1} ] || mkdir -p ${1}
+
+    D=$1
+    
+    echo "- generating ${NEO_CFG_ROOT}"
+
+    [ "$2" ] && {
+        generate ${D} no SYS_SSH_PASS root_password
+        generate ${D} no SYS_SSH_PORT ssh_port
+    }
+
+    generate ${D} no CFG_SHUTDOWN shutdown_menu
+
+    generate ${D} no CFG_MOUSE_HIDE hide_mouse_always
+
+    generate ${D} no CFG_MOUSE_HIDE hide_mouse_always
+    generate ${D} no CFG_MOUSE_AUTOHIDE hide_mouse
+    generate ${D} no CFG_MOUSE_RIGHTCLICK right_mouse_click
+
+    generate ${D} no CFG_NOINPUT disable_input_devices
+    generate ${D} no CFG_KEY_NUMLOCK disable_numlock
+    generate ${D} no CFG_KEY_LAYOUT primary_keyboard_layout
+    generate ${D} no CFG_KEY_LAYOUT_ALT secondary_keboard_layout
+
+    generate ${D} no CFG_SCREEN screen_settings
+    generate ${D} no CFG_SCREEN_ROTATION screen_rotate
+    generateVal ${D} no CFG_SCREEN_WALLPAPER /usr/share/wallpapers/default.jpg
+
+    generate ${D} no CFG_SOUND_CARD default_sound_card
+    generate ${D} no CFG_SOUND_VOLUME volume_level
+    generate ${D} no CFG_SOUND_MIC default_microphone
+
+    generate ${D} no CFG_TIMEZONE timezone
+
+    generate ${D} no CFG_NET_HOSTNAME hostname
+    generate ${D} no CFG_NET_WOL wake_on_lan
+    generate ${D} no CFG_REMOVABLES removable_devices
+}
+
+[ "${2}" ] && DEST="${2}" || DEST="${1}${NEO_CFG_ROOT}"
+
+writevalues ${DEST} ${2}
+sync
+

@@ -1,0 +1,102 @@
+These are the different modules for a Portron Distribution.
+
+Portron is a derivative distribution of Porteus and Porteus Kiosk, so
+the core modules are pretty much the ones of those distributions, without
+all the browser functionality or initalization scripts. Details about
+specific modules:
+
+000-kernel
+
+    Contains the Linux Kernel and Modules. This module uses the kernel
+    from Porteus Desktop distributin with the directory structore of
+    Porteus Kiosk.
+
+001-core
+
+    Contains the basic Linux commands. This module comes straight from
+    Porteus Kiosk distribution without additional modifications.
+
+002-system
+
+    Contains the core Linux directories and scripts. This is a slimmed-down
+    version of Porteus Kiosk module "005-settings", where all scripts not
+    related to core linux have been removed.
+
+003-theme
+
+    Contains the bunch of files that control the whole core Linux Look
+    and Feel.
+
+    The LnF is as minimalistic and non-obtrusive as possible, with all
+    decorations removed, no colors etc.
+
+    These 4 modules alone, together with the initrd, constitute a barebones,
+    working linux system, without any additional functionality.
+
+100-portron
+
+    Contains the base portron functionality: The system init scripts and
+    associated utilities to setup the system. The init system a very light
+    yet powerful structure inspired in systemd, that allows child modules
+    to "plug-in" and insert scripts to be executed at different stages of
+    the initialization process. This means you should never need to modify
+    this module to add functionality to your application.
+
+101-portron-wizard
+
+    Contains the different wizards that are used to configure the system.
+    These wizards are a refactored derivative work of Porteus Kiosk Wizards,
+    with all functionality outside of configuring the core linux system removed.
+    Specifically, you get these wizards:
+
+    - Installation Wizard:
+
+        Run on first launch, allows to install your Portron application
+        persistently to a Hard Disk or removable media.
+
+        Mind that you can define your application  to require a installation,
+        to always run "live" or run live at first and let the user decide to install
+        later on. So the installation wizard will be forcefully run at first time if
+        your application requires persistence, or it may be optionally run from the
+        POWER menu at any time if your application supports persistence. If your
+        application does not need persistence, this wizard will not be used.
+
+    - Runtime Configurator
+
+        On a persistent system, you can change settings such as the
+        soundcard configuration, screen resolution and orientation and
+        many other things without the need to reinstall the system.
+
+        On a live only system, this wizard is not used (as the settings would be lost
+        on reboot). In such a system you always run the "Installation Wizard" to hardcode
+        the settings into the install media.
+
+        This wizard is accessed from the Power Menu.
+
+    - Network Configurator
+
+        Run on first launch, or anytime it is invoked from the power menu.
+        Takes care of configuring the network access and supports WiFi or
+        wired connections.
+
+    - Screen Configurator
+
+        Allows to setup the different monitors connected to the system.
+
+    These wizards are a work in progress and a major refactor is planned
+    that makes better use of Portron Settings Engine. Also they are intentionally
+    kept out of [100-portron] module to be able to choose from different wizards
+    in the future (when other wizard modules would be available)
+
+
+    09-httpd
+
+        An optional module that installs a micro http server at port 8080
+        and web root in /opt/www.
+
+    99-xterm
+
+        An optional module, to be used mainly for debug purposes. Installs
+        an xterm that is accessible from the power menu, to take a look at
+        the back room in realtime.
+

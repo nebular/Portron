@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# GUI initialization script.
+#
+
+. /opt/bin/loadvalues > /var/log/portron.xinit
+
+# Place mouse cursor in the top left corner (mostly useful for digital signage):
+#xdotool mousemove 0 0
+
+
+touch /var/run/portron.xsystem.started
+
+for script in `ls -1 /etc/rc.d/local_gui.d`; do
+    echo "- xinitrc running guiscript {$script}" >> /var/log/portron.xinit
+    . /etc/rc.d/local_gui.d/${script} >> /var/log/portron.xinit
+done
+
+[ -f /var/run/portron.kp.debug ] && /usr/bin/xterm
+
+# Start openbox:
+dbus-launch --exit-with-session /usr/bin/openbox-session

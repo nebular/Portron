@@ -1,0 +1,9 @@
+!/bin/sh
+
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Modified: Rodolfo Lopez <rlp@nebular.tv>
+
+[ "${CFG_NET_WOL}" ] && {
+    # Enable Wake-On-LAN:
+    ethtool -s `route -n | grep " UG " | head -n1 | rev | cut -d" " -f1 | rev` wol g
+}

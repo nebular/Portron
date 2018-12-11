@@ -1,0 +1,52 @@
+#!/bin/sh
+
+#
+# System initialization script.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Refactor: Rodolfo Lopez Pintor <rlp@nebular.tv>
+
+# Install busybox applets:
+/bin/busybox --install -s
+
+# Mount proc, sys and devtmpfs:
+mount proc /proc -nt proc
+mount sysfs /sys -nt sysfs
+mount devtmpfs /dev -nt devtmpfs
+
+# Keep console quiet:
+rm /dev/console
+
+# Only rebuild dependencies if new kernel module(s) are found:
+depmod -A > /dev/null 2>&1
+
+mv /etc/udev/rules.d/* /lib/udev/rules.d/
+
+# Initialize udev to manage /dev entries:
+
+udevd -d  > /dev/null 2>&1
+udevadm trigger --type=subsystems --action=add
+udevadm trigger --type=devices --action=add
+udevadm trigger
+udevadm settle --timeout=120
+
+# Make sure there is enough entropy available:
+/usr/sbin/haveged -r 0
+/usr/sbin/rsyslogd &
+
+fecha=`date`
+echo "* ${fecha} ---- START SYSTEM rc.init -----"
+
+
+    # Variables:
+    . /etc/profile.d/variables.sh
+
+    # Rebuild libraries cache:
+    ldconfig
+
+    # Run local commands in CLI mode (runlevel 3):
+    for script in `ls -1 /etc/rc.d/local_cli.d`; do
+        fecha=`date`
+        echo "- init ${script} at ${fecha}"
+        . /etc/rc.d/local_cli.d/${script}
+    done
+

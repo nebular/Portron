@@ -1,0 +1,29 @@
+#!/bin/sh
+
+
+setupscreen() {
+
+    # Screen setup:
+    if [ "${CFG_SCREEN}" ]; then
+
+        . /opt/bin/setscreen "${CFG_SCREEN}" &
+
+    else
+
+        # Set brightness:
+        for x in `ls -1 /sys/class/backlight`; do
+            echo $((`cat /sys/class/backlight/$x/max_brightness`*100/100)) > /sys/class/backlight/$x/brightness;
+        done
+
+        # Scale screens:
+        # /opt/scripts/scale-screen
+
+        sh /opt/bin/calimon &
+
+    fi
+
+
+}
+
+setupscreen
+

@@ -1,0 +1,55 @@
+#!/bin/bash
+
+tarfile=$1
+destination=$2
+appname=$3
+longname=$4
+an=$0
+
+error() {
+    echo "${an}, tool to convert an electron-builder linux .tar.gz application to a XZM Porteus or Slackware Module"
+    echo "USAGE: ${an} application.tar.gz filename.xzm app_short_name app_long_name"
+}
+
+tarfile="$(cd "$(dirname "${tarfile}")"; pwd)/$(basename "${tarfile}")"
+
+if [ "${appname}" ]; then
+
+    if [ "${longname}" ]; then
+
+        [ -f ${tarfile} ] && {
+
+            destination="$(cd "$(dirname "${destination}")"; pwd)/$(basename "${destination}")"
+
+            mkdir -p $(dirname "${destination}")
+
+            echo "-------------------------------------------------"
+            echo "electron-tgz2xzm, Electron AppImage targz to XZM module"
+
+            echo "- source APPIMAGE.tar.gz ${tarfile}"
+            echo "- destination xzm ${destination}"
+            echo "- application ${appname} ${longname}"
+
+            echo "-------------------------------------------------"
+
+            BASE="$(cd "$(dirname "$0")"; pwd)"
+            cd ${BASE}/tgz2xzm
+
+            rm -f ${destination}
+
+            ./1-untar.sh ${tarfile} ${appname} ${longname}
+            ./2-mkpack.sh ${appname} ${destination}
+
+        } || {
+            error
+        }
+
+    else
+        error
+    fi
+
+else
+
+    error
+
+fi

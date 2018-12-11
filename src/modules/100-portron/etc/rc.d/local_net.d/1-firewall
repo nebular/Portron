@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Block everything what's not required to browse the net.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+# Modified: Rodolfo Lopez <rlp@nebular.tv>
+
+[ ! -f /var/run/portron.firewall ] && {
+
+    # Load iptables module:
+    modprobe ip_tables
+
+    # Set default chain policies:
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP
+    iptables -P OUTPUT ACCEPT
+
+    # Accept everything from localhost:
+    iptables -A INPUT -s 127.0.0.1 -j ACCEPT
+
+    # Accept all previously established connections:
+    iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+    touch /var/run/portron.firewall
+
+}

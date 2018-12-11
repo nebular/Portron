@@ -1,0 +1,49 @@
+#!/bin/sh
+
+echo "* Starting ${CFG_PRODUCT}"
+
+PROCESSNAME=${CFG_PRODUCT}
+
+startelectron() {
+    cd /opt/${CFG_PRODUCT}
+    su -c ${PROCESSNAME} guest > /var/log/portron.electron
+}
+
+if [ -f /opt/${CFG_PRODUCT}/${PROCESSNAME} ]; then
+    if [ -z "`pidof ${PROCESSNAME}`" ]; then
+
+        while true; do
+
+            startelectron
+
+            [ -f /var/run/portron.abort ] && {
+                echo "- ABORT: do not restart application"
+                exit 1
+            }
+
+            sync
+            echo "* electron left"
+            sleep 5
+
+            while [ ! -z "`pidof ${PROCESSNAME}`" ]; do
+
+                # echo "- electron is running"
+                # electron is running
+
+                sleep 10
+
+            done
+
+            # electron died
+            echo "- electron died, restarting"
+
+        done
+
+    else
+
+        echo "- already running!"
+
+    fi
+else
+        echo " - PRODUCT not found."
+fi

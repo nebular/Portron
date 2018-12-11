@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Battery polling script.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Display a warning when battery level reaches 10%:
+while [ 1 ]; do
+    dunstify -C 333 2> /dev/null
+    PTH=/usr/share/icons/oxygen/22x22
+    cap=`cat /sys/class/power_supply/$1/capacity`
+    if [ "$cap" -lt 10 ]; then
+        grep -q Discharging /sys/class/power_supply/$1/status && { dunstify -r 333 -u critical -i $PTH/status/dialog-warning.png "Battery low: "$cap"%, please connect to a power source."; aplay /usr/share/sounds/alert.wav; }
+    fi
+    sleep 60
+done

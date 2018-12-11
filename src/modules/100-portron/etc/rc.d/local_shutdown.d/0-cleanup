@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# should not be neccessary
+# but who knows if this dir is ever persistent
+
+rm -f /var/run/portron*

@@ -1,0 +1,7 @@
+This state offers significant power savings as
+everything in the system is put into a low-power
+state, except for memory, which is placed in
+self-refresh mode to retain its contents.
+
+System and device state is saved and kept
+in memory for fast resume.

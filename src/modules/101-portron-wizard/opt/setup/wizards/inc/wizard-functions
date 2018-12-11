@@ -1,0 +1,1952 @@
+#!/bin/bash
+
+######### Functions for network wizard
+PTH=/usr/share/icons/oxygen/22x22
+
+get_device(){
+    ## Get default device based on user choice (wifi/wired)
+    ## User can change this in the wizard if they want.
+    if [ `grep -o wired ${TMP}/connection.tmp` ]; then
+        iwconfig 2>&1 | grep 'no wireless extension' | grep -v lo | cut -d" " -f1 | sed '/^$/d' | sort > ${TMP}/device
+    elif [ `grep -o wifi ${TMP}/connection.tmp` ]; then
+        iwconfig 2>/dev/null | cut -d" " -f1 | sed '/^$/d' | sort > ${TMP}/device
+    fi
+}
+
+get_essid(){
+    rm -f ${TMP}/essid*
+    for nic in `iwconfig 2>/dev/null | cut -d" " -f1 | sed '/^$/d' | sort`; do
+        ifconfig ${nic} up
+        iwlist ${nic} scan | egrep 'ESSID|Quality' | tac | sed 'N;s/\n/ /' | cut -d: -f2- | sort | sed 's/Signal level=.*$//' >> ${TMP}/essid-scan
+    done
+    cut -d'"' -f2 ${TMP}/essid-scan | sort -u | while read ap; do grep -w "$ap" ${TMP}/essid-scan | sort -u | tail -n1 >> ${TMP}/essid; done
+}
+
+go_forward(){
+    pNow=`cat ${TMP}/.knetPage`
+    if [ ${pNow} -eq 2 ]; then
+        [ `grep "dhcp=yes" ${TMP}/connection.tmp` ] && echo 4 > ${TMP}/.knetPage
+        return
+    fi
+    if [ ${pNow} -eq 4 ]; then return; fi
+    if [ ${pNow} -eq 5 ]; then return; fi
+    if [ ${pNow} -eq 6 ]; then return; fi
+    pForth=$(( pNow + 1 ))
+    echo ${pForth} > ${TMP}/.knetPage
+}
+
+get_report(){
+    for a in `ls -rt ${TMP}/*.tmp`; do
+        cat ${a} >> ${REPORT}
+    done
+    ## Need to process essid, hessid and proxy
+}
+
+dialup_settings(){
+    echo "dialup_phone_number=${pphone}" > ${TMP}/dphone.tmp
+    echo "dialup_username=${puser}" > ${TMP}/duser.tmp
+    echo "dialup_password=${ppass}" > ${TMP}/dpass.tmp
+}
+
+manual_settings(){
+    echo "network_interface=${device}" > ${TMP}/device.tmp
+    echo "ip_address=${ipaddress}" > ${TMP}/ipaddress.tmp
+    echo "netmask=${netmask}" > ${TMP}/netmask.tmp
+    echo "default_gateway=${gateway}" > ${TMP}/gateway.tmp
+    echo "dns_server=${dns1} ${dns2}" > ${TMP}/dns1.tmp
+}
+
+####### Functions for main wizard
+
+dlist(){
+    lsblk -o NAME,TYPE,MODEL,SIZE | egrep -v 'NAME|loop|part|rom' | tr -s ' ' | sed -e 's/ /_/g' -e 's/_/|/1' -e 's/_/|/1' -e 's/\(.*\)_/\1|/' > ${TMPDIR}/block.txt
+}
+
+get_devices(){
+    ## Put all block devices into an array
+    export blocks=`ls -1 /sys/block/ | egrep -v 'loop|sr'|tr -d [:punct:]`
+}
+
+get_whitelist(){
+    echo "" > ${TMPDIR}/white.tmp
+    echo '
+    <window title="URL Filter" icon-name="kiosk" resizable="false" width-request="830" height-request="550">
+    <vbox scrollable="true" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Whitelist</span>"</label></text>
+        <hseparator></hseparator>
+        <text use-markup="true" xalign="0" width-request="720" wrap="true" selectable="true" can-focus="no">
+            <label>"Please enter below an URLs which you want to allow in kiosk. Everything else will be blocked. Wildcards are enabled by default. Please do not use the '"'*'"' character as it breaks the URL filter. Use one entry per line. Examples:
+
+    domain.com
+    mail.domain.com
+    domain.com/path
+    https://domain.com
+    192.168.1.5
+    "
+            </label>
+        </text>
+        <edit selectable="true">
+            <width>550</width>
+            <height>100</height>
+            <variable>whitelistIp</variable>
+            <output file>'${TMPDIR}'/white.tmp</output>
+        </edit>
+        <hbox>
+            <button>
+                <label>OK</label>
+                <input file stock="gtk-yes"></input>
+                <action function="save">whitelistIp</action>
+                <action function="exit">finished</action>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+    [ `grep -c . ${TMPDIR}/white.tmp` -gt 0 ] && echo "whitelist=`cat ${TMPDIR}/white.tmp|tr '\n' ' '`" > ${TMPDIR}/whitelist.tmp
+    rm ${TMPDIR}/white.tmp
+}
+
+get_blacklist(){
+    echo "" > ${TMPDIR}/black.tmp
+    echo '
+    <window title="URL Filter" icon-name="kiosk" resizable="false" width-request="830" height-request="550">
+    <vbox scrollable="true" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Blacklist</span>"</label></text>
+        <hseparator></hseparator>
+        <text use-markup="true" xalign="0" width-request="720" wrap="true" selectable="true" can-focus="no">
+        <label>"Please enter below an URLs which you want to block in kiosk. Everything else will be allowed. Wildcards are enabled by default. Please do not use the '"'*'"' character as it breaks the URL filter. Use one entry per line. Examples:
+
+    domain.com
+    mail.domain.com
+    domain.com/path
+    https://domain.com
+    192.168.1.5
+    "
+            </label>
+        </text>
+        <edit selectable="true">
+            <width>550</width>
+            <height>100</height>
+            <variable>whitelistIp</variable>
+            <output file>'${TMPDIR}'/black.tmp</output>
+        </edit>
+        <hbox>
+            <button>
+                <label>OK</label>
+                <input file stock="gtk-yes"></input>
+                <action function="save">whitelistIp</action>
+                <action function="exit">finished</action>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+    [ `grep -c . ${TMPDIR}/black.tmp` -gt 0 ] && echo "blacklist=`cat ${TMPDIR}/black.tmp|tr '\n' ' '`" > ${TMPDIR}/blacklist.tmp
+    rm ${TMPDIR}/black.tmp
+}
+
+## Generic user input dialog that dumps answer to a chosen file
+## $1=title
+## $2=text
+## $3=width
+## $4=output file
+## $5=prefix variable (example hostname) will echo hostname=$userInput
+## $6=input file
+
+get_input(){
+    local WIDTH=$3
+    [ "$5" == "wallpaper" ]  && echo "wallpaper=`cat ${TMPDIR}/wallpaper.txt`" > ${TMPDIR}/wallpaper.tmp
+    echo '
+    <window title="User input" icon-name="kiosk" resizable="false" width-request="'$3'">
+    <vbox margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text width-request="'$(( WIDTH-20 ))'" wrap="true" selectable="true"><label>'$2'</label></text>
+        <entry activates_default="true" is-focus="true">
+            <variable>userInput</variable>
+            <input file>'$6'</input>
+            <action signal="changed">echo '$5'=$userInput > '$4'</action>
+        </entry>
+        <hbox>
+            '"`if [ "$5" == "wallpaper" ]; then
+                echo '<button tooltip-text="Launch browser. Use Alt+Tab to switch between the browser and the Kiosk Wizard windows.">
+                <label>Browser</label>
+                <input file>/usr/share/pixmaps/browser-48.png</input>
+                <width>22</width>
+                <action>killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 firefox &"</action>
+                </button>'
+                echo '<button><label>Test wallpaper</label>
+                <input file stock="gtk-go-down"></input>
+                <action>rm /tmp/default.jpg 2>/dev/null; wget --no-http-keep-alive --no-cache --no-check-certificate -q -T20 -t3 $(cat ${TMPDIR}/wallpaper.tmp|cut -d'=' -f2-) -O /tmp/default.jpg</action>
+                <action>hsetroot -fill /tmp/default.jpg</action>
+                <action>killall firefox chrome 2>/dev/null</action>
+                </button>'
+            fi`"'
+            '"`if [ "$5" == "kiosk_config" ]; then
+                echo '<button tooltip-text="Check if config is available">
+                <label>Test config</label>
+                <input file>/usr/share/pixmaps/refresh-rate-48.png</input>
+                <width>22</width>
+                <action>wget --no-http-keep-alive --no-cache --no-check-certificate -q -T20 -t3 -O /tmp/tconf $userInput; fromdos /tmp/tconf; fromdos /tmp/tconf; fromdos /tmp/tconf; cat /tmp/tconf | tr -dc '[:alnum:][:space:][:punct:]' > /tmp/tconfig</action>
+                <action>grep -q ^kiosk_config= /tmp/tconfig 2>/dev/null || dunstify -u critical -i /usr/share/icons/oxygen/48x48/status/dialog-warning.png "Remote config was not parsed correctly or '"'kiosk_config="'"$userInput"'"'"' parameter is not present in it.\nSystem configuration will not be updated. Please fix the issues before proceeding with the installation."</action>
+                <action>gtk_list "Remote kiosk config" "Click OK button to close this window." 830 EULA /tmp/tconfig</action>
+                <action>rm -f /tmp/tconf*</action>
+                </button>'
+            fi`"'
+            <button can-default="true" has-default="true">
+                <label>OK</label>
+                <input file stock="gtk-yes"></input>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c -i /opt/setup/wizards/inc/wizard-functions
+
+    ## Process results if required
+
+    ## Load config
+    if [ "$7" = load_config ]; then
+        confurl=`cat ${TMPDIR}/net-config | cut -d= -f2-`
+        if [ "$confurl" ]; then
+        wget --no-http-keep-alive --no-cache --no-check-certificate -q -T20 -t3 -O /tmp/config ${confurl}; fromdos /tmp/config; fromdos /tmp/config; fromdos /tmp/config; tr -dc "[:alnum:][:space:][:punct:]" < /tmp/config > /tmp/conf; mv /tmp/conf /tmp/config
+        [ `wc -l /tmp/config` -lt 3 ] && dunstify -u critical -i ${PTH}/status/dialog-warning.png "Could not load the kiosk config - is the URL correct?\n(click on this message to dismiss)"
+        # Handle GLOBAL configs:
+        if grep -q '^\[\[.*GLOBAL.*\]\]' /tmp/config; then
+            pcid=`grep ^ID: /etc/version | cut -d' ' -f2`
+            sed -n '/^\[\[.*'${pcid}'.*\]\]/,/^$/p' /tmp/config | egrep -v '^\[|^\#|^$' > /tmp/conf
+            sed -e '/^\[\[.*GLOBAL.*\]\]/d' -e '/^\[\[/q' /tmp/config | egrep -v '^\[|^\#|^$' >> /tmp/conf
+            mv /tmp/conf /tmp/config
+        fi
+        else
+        dunstify -u normal -i ${PTH}/actions/dialog-ok-apply.png "Action canceled - no URL provided."
+        fi
+    fi
+
+    ## If no ssh.add file exists (user canceled ssh window)
+    ## then remove port file
+    [ ! -e ${TMPDIR}/ssh.add ] && rm ${TMPDIR}/sshport.tmp 2>/dev/null
+
+}
+
+## Get user input in minutes
+## $1=title
+## $2=text
+## $3=width
+## $4=output file
+## $5=prefix
+##
+get_input_minutes(){
+    local WIDTH=$3
+    echo '
+    <window title="User input" icon-name="kiosk" resizable="false" width-request="'$3'">
+    <vbox margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text width-request="'$(( WIDTH-20 ))'" wrap="true" can-focus="no" selectable="true"><label>'$2'</label></text>
+        <hbox>
+        <entry activates_default="true" can-focus="true" has-focus="true">
+            <variable>entMinutes</variable>
+            <default>5</default>
+            <action signal="changed">echo '$5'=$entMinutes > '$4'</action>
+        </entry>
+        <text width-request="'$(( WIDTH-80 ))'"><label> minutes</label></text>
+        </hbox>
+        '"`if [ "$5" == "session_idle" ]; then
+            echo '<hseparator></hseparator>
+            <hbox><text xalign="1" width-request="800"><label>"You can change default behavior and force browser/session restarts below. This option may be useful when default browser homepage must be refreshed every X minutes (digital signage case):"</label></text></hbox>
+            <hbox>
+            <text><label>Force session restarts when idling:</label></text>
+            <hbox width-request="240"><text><label>""</label></text></hbox>
+            <hbox>
+            <radiobutton tooltip-text="Do not restart the session when idling">
+                <label>No</label>
+                <variable>forcedIdleDis</variable>
+                <default>true</default>
+                <action>if true rm -f '${TMPDIR}'/idle-forced.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Keep restarting the session when idling">
+                <label>Yes</label>
+                <variable>forcedIdleEn</variable>
+                <default>false</default>
+                <action>if true echo session_idle_forced=$entMinutes > '${TMPDIR}'/idle-forced.tmp</action>
+            </radiobutton>
+            </hbox>
+            <hbox width-request="220"><text><label>""</label></text></hbox>
+            </hbox>'
+        fi`"'
+        '"`if [ "$5" == "screensaver_idle" ]; then
+            echo '<hseparator></hseparator>
+            <hbox><text xalign="1" width-request="730"><label>JPG or PNG images used for the slideshow must be packed in the ZIP archive which should be kept on the server all the time. It will be downloaded during every kiosk boot or every X minutes if you enable archive update below (0 minutes means that function is disabled) so you can update the slideshow on demand without kiosk reconfiguration. Default slide duration is 5 seconds (time between loading new image) and you can change it below. Images can be displayed in alphabetical order (default) or randomly.</label></text></hbox>
+            <hbox>
+            <text><label>Screensaver slideshow:</label></text>
+            <hbox width-request="38"><text><label>""</label></text></hbox>
+            <hbox>
+            <radiobutton tooltip-text="Use other screensaver" file-monitor="true" auto-refresh="true">
+                <label>No</label>
+                <variable>scrSlideDis</variable>
+                <default>true</default>
+                <input file>'${TMPDIR}'/srcSlideDis.mon</input>
+                <action>if true disable:scrSlidePth</action>
+                <action>if true disable:scrSlideUpd</action>
+                <action>if true disable:scrSlideDur</action>
+                <action>if true disable:scrSlideRanDis</action>
+                <action>if true disable:scrSlideRanEn</action>
+                <action>if true disable:testSlideshow</action>
+                <action>if true echo true > '${TMPDIR}'/srcSlideRanDis.mon</action>
+                <action>if true rm -f '${TMPDIR}'/slideshow.tmp '${TMPDIR}'/slideshow-update.tmp '${TMPDIR}'/slide-duration.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Use slideshow for the screensaver">
+                <label>Yes</label>
+                <variable>scrSlideEn</variable>
+                <default>false</default>
+                <action>if true enable:testSlideshow</action>
+                <action>if true enable:scrSlidePth</action>
+                <action>if true enable:scrSlideUpd</action>
+                <action>if true enable:scrSlideDur</action>
+                <action>if true enable:scrSlideRanDis</action>
+                <action>if true enable:scrSlideRanEn</action>
+                <action>if true echo true > '${TMPDIR}'/srcVideoDis.mon</action>
+                <action>if true echo true > '${TMPDIR}'/srcURLDis.mon</action>
+                <action>echo "screensaver_archive=$scrSlidePth" > '${TMPDIR}'/slideshow.tmp</action>
+            </radiobutton>
+            </hbox>
+            <hbox width-request="425"><text><label>""</label></text></hbox>
+            </hbox>
+            <hbox>
+            <text><label>Screensaver archive URL:</label></text>
+            <hbox width-request="25"><text><label>""</label></text></hbox>
+            <entry sensitive="false">
+            <variable>scrSlidePth</variable>
+            <default>http://domain.com/files/images.zip</default>
+            <action signal="changed">echo "screensaver_archive=$scrSlidePth" > '${TMPDIR}'/slideshow.tmp</action>
+            </entry>
+            </hbox>
+            <hbox>
+            <text><label>Screensaver archive update:</label></text>
+            <hbox width-request="5"><text><label>""</label></text></hbox>
+            <entry sensitive="false">
+            <variable>scrSlideUpd</variable>
+            <default>0</default>
+            <action signal="changed">echo "screensaver_archive_update=$scrSlideUpd" > '${TMPDIR}'/slideshow-update.tmp</action>
+            </entry>
+            <text width-request="485"><label> minutes</label></text>
+            </hbox>
+            <hbox>
+            <text><label>Slide duration:</label></text>
+            <hbox width-request="96"><text><label>""</label></text></hbox>
+            <entry sensitive="false">
+            <variable>scrSlideDur</variable>
+            <default>5</default>
+            <action signal="changed">echo "slide_duration=$scrSlideDur" > '${TMPDIR}'/slide-duration.tmp</action>
+            </entry>
+            <text width-request="485"><label> seconds</label></text>
+            </hbox>
+            <hbox>
+            <text><label>Slide random:</label></text>
+            <hbox width-request="100"><text><label>""</label></text></hbox>
+            <radiobutton sensitive="false" tooltip-text="Use alphabetical order when displaying images" file-monitor="true" auto-refresh="true">
+                <label>No</label>
+                <variable>scrSlideRanDis</variable>
+                <default>true</default>
+                <input file>'${TMPDIR}'/srcSlideRanDis.mon</input>
+                <action>if true rm -f '${TMPDIR}'/slide-random.tmp</action>
+            </radiobutton>
+            <radiobutton sensitive="false" tooltip-text="Use random order when displaying images">
+                <label>Yes</label>
+                <variable>scrSlideRanEn</variable>
+                <default>false</default>
+                <action>echo "slide_random=yes" > '${TMPDIR}'/slide-random.tmp</action>
+            </radiobutton>
+            <hbox width-request="425"><text><label>""</label></text></hbox>
+            </hbox>
+            <hseparator></hseparator>
+            <hbox><text xalign="1" width-request="730"><label>Video file which will be used for the screensaver. It should be kept on the server at all times so you can update it on demand without kiosk reconfiguration. Browser application is used to play the screensaver video and must support relevant codecs through the html5 audio/video tags. It is possible to use a local video for the screensaver, example: "'"file:///opt/storage/video.mp4"'". </label></text></hbox>
+            <hbox>
+            <text><label>Screensaver video:</label></text>
+            <hbox width-request="60"><text><label>""</label></text></hbox>
+            <hbox>
+            <radiobutton tooltip-text="Use other screensaver" file-monitor="true" auto-refresh="true">
+                <label>No</label>
+                <variable>scrVideoDis</variable>
+                <default>true</default>
+                <input file>'${TMPDIR}'/srcVideoDis.mon</input>
+                <action>if true disable:scrVideoPth</action>
+                <action>if true disable:testVideo</action>
+                <action>if true rm -f '${TMPDIR}'/videoshow.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Use video for the screensaver">
+                <label>Yes</label>
+                <variable>scrVideoEn</variable>
+                <default>false</default>
+                <action>if true enable:testVideo</action>
+                <action>if true enable:scrVideoPth</action>
+                <action>if true echo true > '${TMPDIR}'/srcSlideDis.mon</action>
+                <action>if true echo true > '${TMPDIR}'/srcSlideRanDis.mon</action>
+                <action>if true echo true > '${TMPDIR}'/srcURLDis.mon</action>
+                <action>echo "screensaver_video=$scrVideoPth" > '${TMPDIR}'/videoshow.tmp</action>
+            </radiobutton>
+            </hbox>
+            <hbox width-request="430"><text><label>""</label></text></hbox>
+            </hbox>
+            <hbox>
+            <text><label>Screensaver video URL:</label></text>
+            <hbox width-request="35"><text><label>""</label></text></hbox>
+            <entry sensitive="false">
+            <variable>scrVideoPth</variable>
+            <default>http://domain.com/files/video.webm</default>
+            <action signal="changed">echo "screensaver_video=$scrVideoPth" > '${TMPDIR}'/videoshow.tmp</action>
+            </entry>
+            </hbox>
+            <hseparator></hseparator>
+            <hbox><text xalign="1" width-request="730"><label>Use webpage as the screensaver. This is useful if you want to display any multimedia content embedded on a specific webpage when system is not used.</label></text></hbox>
+            <hbox>
+            <text><label>Screensaver webpage:</label></text>
+            <hbox width-request="38"><text><label>""</label></text></hbox>
+            <hbox>
+            <radiobutton tooltip-text="Use other screensaver" file-monitor="true" auto-refresh="true">
+                <label>No</label>
+                <variable>scrURLDis</variable>
+                <default>true</default>
+                <input file>'${TMPDIR}'/srcURLDis.mon</input>
+                <action>if true disable:scrURLPth</action>
+                <action>if true disable:testURL</action>
+                <action>if true rm -f '${TMPDIR}'/screensaver-url.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Use webpage for the screensaver">
+                <label>Yes</label>
+                <variable>scrURLEn</variable>
+                <default>false</default>
+                <action>if true enable:testURL</action>
+                <action>if true enable:scrURLPth</action>
+                <action>if true echo true > '${TMPDIR}'/srcSlideDis.mon</action>
+                <action>if true echo true > '${TMPDIR}'/srcSlideRanDis.mon</action>
+                <action>if true echo true > '${TMPDIR}'/srcVideoDis.mon</action>
+                <action>echo "screensaver_webpage=$scrURLPth" > '${TMPDIR}'/screensaver-url.tmp</action>
+            </radiobutton>
+            </hbox>
+            <hbox width-request="430"><text><label>""</label></text></hbox>
+            </hbox>
+            <hbox>
+            <text><label>Screensaver webpage URL:</label></text>
+            <hbox width-request="10"><text><label>""</label></text></hbox>
+            <entry sensitive="false">
+            <variable>scrURLPth</variable>
+            <default>http://domain.com/files/index.html</default>
+            <action signal="changed">echo "screensaver_webpage=$scrURLPth" > '${TMPDIR}'/screensaver-url.tmp</action>
+            </entry>
+            </hbox>
+            <hbox><text><label>""</label></text></hbox>'
+        fi`"'
+        <hbox>
+            '"`if [ "$5" == "screensaver_idle" ]; then
+            echo '
+            <button tooltip-text="Launch the ripples screensaver">
+                <label>Test '"'ripples'"' screensaver</label>
+                <input file>/usr/share/pixmaps/screensaver-48.png</input>
+                <width>22</width>
+                <action>dunstify -u critical -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "Please do not use input devices until screensaver is started"</action>
+                <action>sed -i 's/#SSIDLE=300/SSIDLE=1/g' /etc/xdg/openbox/autostart</action>
+                <action>sed -i '\''25,50s/imlib2_view 2/imlib2_view screensaver-idle-watcher 2/g'\'' /opt/scripts/screensaver-idle-watcher</action>
+                <action>/opt/scripts/screensaver-idle-watcher &</action>
+                <action>sleep 3</action>
+            </button>
+            <button sensitive="false" tooltip-text="Launch the slideshow">
+                <label>Test slideshow</label>
+                <variable>testSlideshow</variable>
+                <input file>/usr/share/pixmaps/slideshow-48.png</input>
+                <width>22</width>
+                <action>dunstify -u critical -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "Please do not use input devices until screensaver is started"</action>
+                <action>sed -i 's/#SSIDLE=300/SSIDLE=1/g' /etc/xdg/openbox/autostart</action>
+                <action>rm -f /usr/share/screensaver/* /opt/scripts/files/arch.md5; dunstify -u normal -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "Downloading images - please be patient ...."; /opt/scripts/screensaver-slideshow $(cat '${TMPDIR}'/slideshow.tmp | cut -d= -f2-); sleep 15</action>
+                <action>cp -a /opt/scripts/files/slideshow /tmp/slideshow; sed -i '"'s/killall feh/killall feh slideshow/g'"' /tmp/slideshow; test -e /tmp/kwiz.*/slide-duration.tmp && sed -i s/-D5/-D$(cat '${TMPDIR}'/slide-duration.tmp | cut -d= -f2-)/ /tmp/slideshow; test -e /tmp/kwiz.*/slide-random.tmp && sed -i '"'s| -S filename | -z -f /opt/scripts/files/fehpls |g'"' /tmp/slideshow; /tmp/slideshow &</action>
+            </button>
+            <button sensitive="false" tooltip-text="Launch the video screensaver">
+                <label>Test video</label>
+                <variable>testVideo</variable>
+                <input file>/usr/share/pixmaps/video-48.png</input>
+                <width>22</width>
+                <action>dunstify -u critical -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "Please do not use input devices until screensaver is started"</action>
+                <action>sed -i 's/#SSIDLE=300/SSIDLE=1/g' /etc/xdg/openbox/autostart</action>
+                <action>sed -i -r '"'s/kill -9.*$/killall hhpc videoshow chrome firefox/g'"' /opt/scripts/files/videoshow</action>
+                <action>su '${chflag}' -c /opt/scripts/files/videoshow</action>
+            </button>
+            <button sensitive="false" tooltip-text="Launch the webpage screensaver">
+                <label>Test webpage</label>
+                <variable>testURL</variable>
+                <input file>/usr/share/pixmaps/browser-48.png</input>
+                <width>22</width>
+                <action>dunstify -u critical -i /usr/share/icons/oxygen/22x22/status/dialog-information.png "Please do not use input devices until screensaver is started"</action>
+                <action>sed -i 's/#SSIDLE=300/SSIDLE=1/g' /etc/xdg/openbox/autostart</action>
+                <action>sed -i -r '"'s/kill -9.*$/killall hhpc screensaverURL chrome firefox/g'"' /opt/scripts/files/screensaverURL</action>
+                <action>su '${chflag}' -c /opt/scripts/files/screensaverURL</action>
+            </button>
+            '
+            fi`"'
+            <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    ## Process results if required
+    # Remove doubled settings:
+    [ -e ${TMPDIR}/idle-forced.tmp ] && rm ${TMPDIR}/idle.tmp
+}
+
+##  Generic user input box (one per line style)
+## $1=title
+## $2=text
+## $3=width
+## $4=height of text box
+## $5=default
+## $6=output file
+gtk_entry_box(){
+    local WIDTH=$3
+    local tag=$7
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="'${WIDTH}'">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="'$(( WIDTH-40 ))'" wrap="true"  selectable="true"><label>'$2'</label></text>
+        <text><label>""</label></text>
+        <edit selectable="true" is-focus="true">
+            <width>'$(( WIDTH-40 ))'</width>
+            <height>'$4'</height>
+            <variable>entryBox</variable>
+            <default>'$5'</default>
+            <output file>'$6'</output>
+        </edit>
+        '"`if [ "$7" == "homepage" ]; then
+            echo '<hbox>
+            <text><label>Append string to the homepage: </label></text>
+            <hbox width-request="255"><text><label>""</label></text></hbox>
+            <hbox>
+            <radiobutton tooltip-text="Do not append anything">
+                <label>None</label>
+                <variable>hpageAppendDis</variable>
+                <default>true</default>
+                <action>if true rm -f '${TMPDIR}'/homepage-append.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Append MAC address">
+                <label>MAC address</label>
+                <variable>hpageAppendMAC</variable>
+                <default>false</default>
+                <action>if true echo homepage_append=mac > '${TMPDIR}'/homepage-append.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Append kiosk hostname">
+                <label>Kiosk hostname</label>
+                <variable>hpageAppendHostname</variable>
+                <default>false</default>
+                <action>if true echo homepage_append=hostname > '${TMPDIR}'/homepage-append.tmp</action>
+            </radiobutton>
+            </hbox>
+            <hbox width-request="0"><text><label>""</label></text></hbox>
+            </hbox>
+            <hbox>
+            <text><label>Homepage availability check during boot:</label></text>
+            <hbox width-request="196"><text><label>""</label></text></hbox>
+            <hbox>
+            <radiobutton tooltip-text="Do not perform the homepage availability check">
+                <label>No</label>
+                <variable>hpageCheckDis</variable>
+                <default>true</default>
+                <action>if true rm -f '${TMPDIR}'/homepage-check.tmp</action>
+                <action>if true disable:hpageCheckMessage</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Perform homepage availability check">
+                <label>Yes</label>
+                <variable>hpageCheckEn</variable>
+                <default>false</default>
+                <action>if true enable:hpageCheckMessage</action>
+                <action>echo "homepage_check=$hpageCheckMessage" > '${TMPDIR}'/homepage-check.tmp</action>
+            </radiobutton>
+            </hbox>
+            <hbox width-request="217"><text><label>""</label></text></hbox>
+            </hbox>
+            <hbox>
+            <text><label>Not available message:</label></text>
+            <entry sensitive="false">
+            <variable>hpageCheckMessage</variable>
+            <default>Homepage is not available - please contact your administrator</default>
+            <action signal="changed">echo "homepage_check=$hpageCheckMessage" > '${TMPDIR}'/homepage-check.tmp</action>
+            </entry>
+            </hbox>'
+        fi`"'
+        <hbox>
+        '"`if [ "$7" == "homepage" ]; then
+            echo '<button tooltip-text="Launch browser on default homepage">
+            <label>Test homepage</label>
+            <input file>/usr/share/pixmaps/browser-48.png</input>
+            <width>22</width>
+            <action function="save">entryBox</action>
+            <action condition="command_is_true( [ $(grep =hostname ${TMPDIR}/homepage-append.tmp 2>/dev/null | wc -l) -gt 0 ] && echo true )">echo $(cat ${TMPDIR}/homepage)?kiosk=$(hostname) > ${TMPDIR}/homepagea; cp -a /tmp/hpage /tmp/hpagea; sed -i s/homepage/homepagea/g /tmp/hpagea</action>
+            <action condition="command_is_true( [ $(grep =mac ${TMPDIR}/homepage-append.tmp 2>/dev/null | wc -l) -gt 0 ] && echo true )">echo $(cat ${TMPDIR}/homepage)?kiosk=$(cat /sys/class/net/$(ls -1 /sys/class/net | grep -v lo | head -n1 | sed s/@//)/address | sed s/://g | tr [a-z] [A-Z]) > ${TMPDIR}/homepagea; cp -a /tmp/hpage /tmp/hpagea; sed -i s/homepage/homepagea/g /tmp/hpagea</action>
+            <action condition="command_is_true( [ $(grep . ${TMPDIR}/homepage-append.tmp 2>/dev/null | wc -l) -gt 0 ] && echo true )">killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 /tmp/hpagea &"; sleep 3</action>
+            <action condition="command_is_true( [ $(grep . ${TMPDIR}/homepage-append.tmp 2>/dev/null | wc -l) -eq 0 ] && echo true )">killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 /tmp/hpage &"; sleep 3</action>
+            </button>'
+        fi`"'
+        <button>
+            <label>OK</label>
+            <input file stock="gtk-yes"></input>
+            <action function="save">entryBox</action>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    ## $7 is a tag to process the output file in different ways
+    if [ "$tag" == "hostnames" ]; then
+        echo "hostname_aliases=`cat $6|tr '\n' '|' | sed 's/|$//' | sed 's/|$//' | sed 's/|$//'`" > $6.tmp
+        cp -a /etc/hosts-org /etc/hosts && cat $6 >> /etc/hosts
+        rm $6
+    fi
+    if [ "$tag" == "homepage" ]; then
+        echo "homepage=`cat $6|tr '\n' '|' | sed 's/|$//' | sed 's/|$//' | sed 's/|$//'`" > $6.tmp
+        rm $6
+    fi
+    if [ "${tag}" == "bookmarks" ]; then
+        echo "managed_bookmarks=`cat $6|tr '\n' ' '`" > $6.tmp
+        rm $6
+    fi
+    if [ "${tag}" == "certificates" ]; then
+        echo "import_certificates=`cat $6|tr '\n' ' '`" > $6.tmp
+        rm $6
+    fi
+}
+
+## Generic user input of minutes
+## $1=title
+## $2=text
+## $3=width
+## $4=prefix
+## $5=output file
+## $6=range max
+## $7=suffix
+gtk_get_range(){
+    local WIDTH=$3
+    local PREFIX=$4
+    local OUTFILE=$5
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="'${WIDTH}'">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="'$(( WIDTH-40 ))'" wrap="true"><label>'$2'</label></text>
+        <hscale width-request="'$(( WIDTH-150 ))'" height-request="50" range-value="0" range-max="'$6'" activates_default="true">
+            <default>'$8'</default>
+            <variable>scaleMin</variable>
+            <action signal="value_changed">echo "'$4'=$scaleMin'$7'" > '$5'</action>
+        </hscale>
+        <hbox>
+        '"`if [ "$4" == "volume_level" ]; then
+            echo '<button tooltip-text="Test sound level">
+            <label>Test sound level</label>
+            <input file>/usr/share/pixmaps/play-48.png</input>
+            <width>22</width>
+            <action>sed -i -r "s/^level=.*$/level=$scaleMin%/g" /etc/rc.d/rc.sound; /etc/rc.d/rc.sound; sleep 2</action>
+            <action>killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 firefox http://porteus-kiosk.org/public/Testing/kde.ogg &"; sleep 3</action>
+            </button>'
+        fi`"'
+        <button can-default="true" has-default="true">
+            <label>OK</label>
+            <input file stock="gtk-yes"></input>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+## Generic list choice
+## $1=title
+## $2=text
+## $3=width
+## $4=prefix
+## $5=input list
+## $6=output file
+## $7=tag
+gtk_list(){
+
+    # Exit if pkbdl was set int the welcome wizard:
+    pkbdl=`grep ^primary_keyboard_layout /tmp/config 2>/dev/null | cut -d= -f2-`
+    [ "$7" = "keyboard1" -a "$pkbdl" ] && exit
+
+    WIDTH=$3
+    [ "$7" = "sound-card" -o "$7" = "microphone" ] && HEIGHT=200 || HEIGHT=400
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="'${WIDTH}'">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="'$(( WIDTH-40 ))'" wrap="true"><label>'$2'</label></text>
+        <list>
+            <width>'$(( WIDTH-60 ))'</width>
+            <height>'${HEIGHT}'</height>
+            <variable>tz</variable>
+            <input file>'$5'</input>
+            <action>echo '$4'=$tz > '$6'</action>
+        </list>
+        '"`if [ "$7" == "ntpserver" ]; then echo '<hseparator></hseparator><text xalign="0" width-request="'$(( WIDTH-50 ))'" wrap="true"><label>Enter custom NTP server which will be used to sync the clock or leave default if unsure.</label></text><entry><variable>ntpserver</variable><default>pool.ntp.org</default><action signal="changed">echo ntp_server=$ntpserver > '${TMPDIR}'/ntp-server.tmp</action></entry>'; fi`"'
+        '"`if [ "$7" == "res" ]; then echo '<entry><variable>ress</variable><default>640x480</default><action signal="changed">echo screen_resolution=$ress > '${TMPDIR}'/res.tmp</action></entry>'; fi`"'
+        '"`if [ "$7" == "refresh" ]; then echo '<entry><variable>ref</variable><default>60</default><action signal="changed">echo screen_refresh_rate=$ref > '${TMPDIR}'/refresh.tmp</action></entry>'; fi`"'
+        <hbox>
+        <button can-default="true" has-default="true">
+            <label>OK</label>
+            <input file stock="gtk-yes"></input>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    if [ "$7" == "ntpserver" ]; then
+        test -e ${TMPDIR}/timezone.tmp || rm -f ${TMPDIR}/ntp-server.tmp
+    elif [ "$7" == "keyboard1" ]; then
+        scode=`cat $6 | cut -d" " -f1 | sed 's/(/:/' | sed 's/)//' `
+        echo "$scode" > ${TMPDIR}/keyboard1.tmp
+    elif [ "$7" == "keyboard2" ]; then
+        scode=`cat $6 | cut -d" " -f1 | sed 's/(/:/' | sed 's/)//' `
+        echo "$scode" > ${TMPDIR}/keyboard2.tmp
+    elif [ "$7" == "sound-card" ]; then
+        card=`cut -d= -f2- $6 | cut -d: -f1 | cut -d" " -f2`
+        device=`cut -d= -f2- $6 | rev | cut -d: -f2 | cut -d" " -f1 | rev`
+        [ "$card" ] && echo "default_sound_card=$card.$device" > ${TMPDIR}/sound-card.tmp
+    elif [ "$7" == "microphone" ]; then
+        card=`cut -d= -f2- $6 | cut -d: -f1 | cut -d" " -f2`
+        device=`cut -d= -f2- $6 | rev | cut -d: -f2 | cut -d" " -f1 | rev`
+        [ "$card" ] && echo "default_microphone=$card.$device" > ${TMPDIR}/microphone.tmp
+    fi
+}
+
+gtk_planner() {
+    echo 'halt' > ${TMPDIR}/sched-exec
+    echo 'Monday-23:30' > ${TMPDIR}/sched-day1
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+            <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Scheduled Tasks</span>"</label></text>
+            <hseparator></hseparator>
+            <text xalign="1" wrap="true" width-request="800"><label>Please select one of the predefined actions or select a custom command option.</label></text>
+        <text><label>""</label></text>
+            <hbox>
+            <text><label>Action:		</label></text>
+            <comboboxtext>
+                    <item>System shutdown</item>
+                    <item>System reboot</item>
+                    <item>Browser restart</item>
+                    <item>Custom command</item>
+                    <variable>command</variable>
+                    <action signal="changed">echo $command | grep -q shutdown && com=halt; echo $command | grep -q reboot && com=reboot; echo $command | grep -q restart && com="killall firefox chrome"; echo $command | grep -q Custom && com=""; echo "$com" > '${TMPDIR}'/sched-exec</action>
+                    <action signal="changed" condition="command_is_true( [ `grep -c . '${TMPDIR}'/sched-exec` -eq 1 ] && echo true )" function="disable">ccommand</action>
+                    <action signal="changed" condition="command_is_true( [ `grep -c . '${TMPDIR}'/sched-exec` -eq 0 ] && echo true )" function="enable">ccommand</action>
+            </comboboxtext>
+            <vbox width-request="532"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Command(s):	</label></text>
+                    <entry visibility="true" sensitive="false" editable="true" activates_default="true">
+                            <variable>ccommand</variable>
+                            <default>killall chrome; sleep 240m; killall chrome; sleep 4h; halt</default>
+                            <action signal="changed">echo "$ccommand" > '${TMPDIR}'/sched-exec</action>
+                    </entry>
+            </hbox>
+        <text><label>""</label></text>
+            <hseparator></hseparator>
+        <text xalign="1" wrap="true" width-request="800"><label>Please enter the time when the task should be completed. Following format must be preserved hour:minute.</label></text>
+        <text><label>""</label></text>
+            <hbox>
+                    <text><label>Monday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>23:30</default>
+                            <variable>Mon</variable>
+                            <action signal="changed">echo "Monday-$Mon" > '${TMPDIR}'/sched-day1</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Tuesday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Tue</variable>
+                            <action signal="changed">echo "Tuesday-$Tue" > '${TMPDIR}'/sched-day2</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Wednesday:	</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Wed</variable>
+                            <action signal="changed">echo "Wednesday-$Wed" > '${TMPDIR}'/sched-day3</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Thursday:	</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Thu</variable>
+                            <action signal="changed">echo "Thursday-$Thu" > '${TMPDIR}'/sched-day4</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Friday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Fri</variable>
+                            <action signal="changed">echo "Friday-$Fri" > '${TMPDIR}'/sched-day5</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Saturday:	</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Sat</variable>
+                            <action signal="changed">echo "Saturday-$Sat" > '${TMPDIR}'/sched-day6</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Sunday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Sun</variable>
+                            <action signal="changed">echo "Sunday-$Sun" > '${TMPDIR}'/sched-day7</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <text><label>""</label></text>
+        <hbox>
+        <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+    # Parse the output:
+    for x in `ls -1 ${TMPDIR} | grep sched-day`; do [ "`cat ${TMPDIR}/${x} | grep off`" ] && rm ${TMPDIR}/${x}; done
+    [ `ls -1 ${TMPDIR} | grep -c sched-day` -lt 1 -o `grep -c . ${TMPDIR}/sched-exec` -eq 0 ] && rm -f ${TMPDIR}/sched-*
+    for x in `ls -1 ${TMPDIR} | grep sched-day`; do sched="${sched} `cat ${TMPDIR}/$x`"; done
+    sched=`echo ${sched} | sed 's/^ //'`
+    test -e ${TMPDIR}/sched-exec && echo "scheduled_action=${sched} action:`cat ${TMPDIR}/sched-exec`" > ${TMPDIR}/planner.tmp
+}
+
+gtk_rtc() {
+    echo 'Monday-23:30' > ${TMPDIR}/sched-day1
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+            <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>RTC wake alarm</span>"</label></text>
+            <hseparator></hseparator>
+        <text xalign="1" wrap="true" width-request="800"><label>Please enter the time when kiosk should be powered up by the RTC (Real Time Clock). Following format must be preserved hour:minute.</label></text>
+        <text><label>""</label></text>
+            <hbox>
+                    <text><label>Monday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>23:30</default>
+                            <variable>Mon</variable>
+                            <action signal="changed">echo "Monday-$Mon" > '${TMPDIR}'/sched-day1</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Tuesday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Tue</variable>
+                            <action signal="changed">echo "Tuesday-$Tue" > '${TMPDIR}'/sched-day2</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Wednesday:	</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Wed</variable>
+                            <action signal="changed">echo "Wednesday-$Wed" > '${TMPDIR}'/sched-day3</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Thursday:	</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Thu</variable>
+                            <action signal="changed">echo "Thursday-$Thu" > '${TMPDIR}'/sched-day4</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Friday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Fri</variable>
+                            <action signal="changed">echo "Friday-$Fri" > '${TMPDIR}'/sched-day5</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Saturday:	</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Sat</variable>
+                            <action signal="changed">echo "Saturday-$Sat" > '${TMPDIR}'/sched-day6</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <hbox>
+                    <text><label>Sunday:		</label></text>
+                    <entry editable="true" activates_default="true">
+                            <default>off</default>
+                            <variable>Sun</variable>
+                            <action signal="changed">echo "Sunday-$Sun" > '${TMPDIR}'/sched-day7</action>
+                    </entry>
+            <vbox width-request="640"><text><label>""</label></text></vbox>
+            </hbox>
+            <text><label>""</label></text>
+        <hbox>
+        <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+    # Parse the output:
+    for x in `ls -1 ${TMPDIR} | grep sched-day`; do [ "`cat ${TMPDIR}/${x} | grep off`" ] && rm ${TMPDIR}/${x}; done
+    [ `ls -1 ${TMPDIR} | grep -c sched-day` -lt 1 ] && rm -f ${TMPDIR}/sched-*
+    for x in `ls -1 ${TMPDIR} | grep sched-day`; do sched="$sched `cat ${TMPDIR}/${x}`"; done
+    sched=`echo ${sched} | sed 's/^ //'`
+    [ `ls -1 ${TMPDIR} | grep -c sched-day` -lt 1 ] || echo "rtc_wake=${sched}" > ${TMPDIR}/rtc.tmp
+}
+
+
+## Displays a list to choose from and a slider to choose a range
+## useful for getting a power state and idle time in minutes
+## $1=title
+## $2=text
+## $3=width
+## $4=prefix1 (list choice)
+## $5=input file to show in list
+## $6=output file for prefix1
+## $7=range maximum value
+## $8=suffix for range (e.g %)
+## $9=prefix2 (slider)
+## $10=output file for prefix2
+gtk_list_range(){
+    WIDTH=$3
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="'${WIDTH}'">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="'$(( WIDTH-40 ))'" wrap="true" can-focus="no" selectable="true"><label>'$2'</label></text>
+        <list>
+            <width>'$(( WIDTH-60 ))'</width>
+            <height>200</height>
+            <variable>tz</variable>
+            <input file>'$5'</input>
+            <action>echo '$4'=$tz > '$6'</action>
+        </list>
+        <hscale width-request="'$(( WIDTH-150 ))'" height-request="50" range-value="5" range-max="'$7'" activates_default="true">
+            <variable>scaleMin</variable>
+            <action signal="value_changed">echo "'$9'=$scaleMin'$8'" > '$10'</action>
+        </hscale>
+        <hbox>
+        <button can-default="true" has-default="true">
+            <label>OK</label>
+            <input file icon="gtk-yes"></input>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+
+gtk_warning(){
+    WIDTH=$3
+    echo '<window title="Warning" icon-name="kiosk" resizable="false" width-request="'${WIDTH}'">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text><label>""</label></text>
+        <hbox>
+            <pixmap><input file>/usr/share/icons/oxygen/48x48/status/dialog-error.png</input></pixmap>
+            <text width-request="10"><label>""</label></text>
+            <text yalign="0" width-request="'$(( WIDTH-40 ))'" wrap="true">
+                <label>"'$2' "</label>
+            </text>
+        </hbox>
+        <hbox>
+            <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+## Displays a dropdown menu from a file
+## $1=title
+## $2=text
+## $3=width
+## $4=output file
+## $5=text for dropdown
+## $6=tag
+get_power_option(){
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Power options</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="800" wrap="true" can-focus="no" selectable="true"><label>"Choose from a supported power option below. If the option is greyed out then it is not available on your system. You may type the greyed out option into the box below (type the power state name eg: mem or freeze) if you want to use the kiosk on a machine other than this one."</label></text>
+        <text><label>""</label></text>
+        <hbox>
+            <text><label>Inactivity period: </label></text>
+            <entry width-request="40" is-focus="true">
+                <variable>pMins</variable>
+                <default>10</default>
+                <action>echo $pMins > '${TMPDIR}'/idle-minutes.txt</action>
+                <action signal="changed">echo $pMins > '${TMPDIR}'/idle-minutes.txt</action>
+            </entry>
+            <text width-request="620"><label>minutes</label></text>
+        </hbox>
+        <radiobutton tooltip-text="'"`cat /opt/scripts/files/wizard/tooltip-freeze.txt`"'">
+            <label>Freeze: Low power idle (power state name: freeze)</label>
+            '"`if [ ! $(grep -wo freeze /sys/power/state) ]; then echo '<sensitive>false</sensitive>'; fi`"'
+            <action>if true echo "freeze_idle=$pMins" > '${TMPDIR}'/powersave.tmp</action>
+            <action>if true rm '${TMPDIR}'/powersave.txt 2>/dev/null</action>
+        </radiobutton>
+        <radiobutton tooltip-text="'"`cat /opt/scripts/files/wizard/tooltip-standby.txt`"'">
+            <label>Standby: Power-on suspend (power state name: standby)</label>
+            '"`if [ ! $(grep -wo standby /sys/power/state) ]; then echo '<sensitive>false</sensitive>'; fi`"'
+            <action>if true echo "standby_idle=$pMins" > '${TMPDIR}'/powersave.tmp</action>
+            <action>if true rm '${TMPDIR}'/powersave.txt 2>/dev/null</action>
+        </radiobutton>
+        <radiobutton  tooltip-text="'"`cat /opt/scripts/files/wizard/tooltip-mem.txt`"'">
+            <label>Ram: Suspend to RAM (power state name: mem)</label>
+            '"`if [ ! $(grep -wo mem /sys/power/state) ]; then echo '<sensitive>false</sensitive>'; fi`"'
+            <action>if true echo "suspend_idle=$pMins" > '${TMPDIR}'/powersave.tmp</action>
+            <action>if true rm '${TMPDIR}'/powersave.txt 2>/dev/null</action>
+        </radiobutton>
+        <radiobutton  tooltip-text="This option saves the most power by shutting down your system after a given time. Be aware that the system will not resume to its previous state.">
+            <label>Halt: Shutdown the system (power state name: halt)</label>
+            <action>if true echo "halt_idle=$pMins" > '${TMPDIR}'/powersave.tmp</action>
+            <action>if true rm '${TMPDIR}'/powersave.txt 2>/dev/null</action>
+        </radiobutton>
+        <hbox>
+            <text><label>Enter a custom power state name: </label></text>
+            <entry>
+                <variable>entCustomPower</variable>
+                <action signal="changed">echo "${entCustomPower}_idle=$pMins" > '${TMPDIR}'/powersave.txt</action>
+            </entry>
+            <text width-request="10"><label>""</label></text>
+        </hbox>
+        <hseparator></hseparator>
+        <hbox>
+            <button tooltip-text="Test if selected power state works on this PC">
+            <label>Test power state</label>
+            <input file>/usr/share/pixmaps/suspend-48.png</input>
+            <width>22</width>
+            <action>grep freeze '${TMPDIR}'/powersave.tmp && echo freeze > /sys/power/state</action>
+            <action>grep standby '${TMPDIR}'/powersave.tmp && echo standby > /sys/power/state</action>
+            <action>grep suspend '${TMPDIR}'/powersave.tmp && echo mem > /sys/power/state</action>
+            </button>
+            <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    ## If user typed a custom power state then process results
+    if [ -e ${TMPDIR}/powersave.txt ]; then
+        if [ `grep -o mem ${TMPDIR}/powersave.txt` ]; then
+            local STATE=suspend_idle
+            local pMins=`cat ${TMPDIR}/idle-minutes.txt`
+            echo ${STATE}=${pMins} > ${TMPDIR}/powersave.tmp
+                else
+            cat ${TMPDIR}/powersave.txt > ${TMPDIR}/powersave.tmp
+        fi
+    fi
+}
+
+get_rotate_option(){
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="600">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Rotate options</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="540" wrap="true"><label>"Rotation can be one of the left, right or inverted. This causes the video output contents to be rotated in the specified direction. Right specifies a clockwise rotation of the picture, left specifies a counter-clockwise rotation while inverted tells the system to rotate the screen by 180 degrees."</label></text>
+        <text><label>""</label></text>
+        <radiobutton>
+            <label>Keep the screen in normal position</label>
+            <action>if true echo "screen_rotate=normal" > '${TMPDIR}'/rotate.tmp</action>
+        </radiobutton>
+        <radiobutton>
+            <label>Rotate the screen on the left</label>
+            <action>if true echo "screen_rotate=left" > '${TMPDIR}'/rotate.tmp</action>
+        </radiobutton>
+        <radiobutton>
+            <label>Rotate the screen on the right</label>
+            <action>if true echo "screen_rotate=right" > '${TMPDIR}'/rotate.tmp</action>
+        </radiobutton>
+        <radiobutton>
+            <label>Display the screen in the inverted position</label>
+            <action>if true echo "screen_rotate=inverted" > '${TMPDIR}'/rotate.tmp</action>
+        </radiobutton>
+        <hseparator></hseparator>
+        <hbox>
+            <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+get_cursor_mode(){
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+    <hbox>
+        <text><label>Hide mouse cursor permanently:</label></text>
+        <hbox width-request="20"><text><label>""</label></text></hbox>
+        <hbox>
+        <radiobutton tooltip-text="Hide the mouse cursor after X seconds of inactivity">
+            <label>No</label>
+            <variable>cursorHideSeconds</variable>
+            <default>false</default>
+            <action>if true enable:hideSeconds</action>
+            <action>if true echo "hide_mouse=$hideSeconds" > '${TMPDIR}'/mouse-seconds.tmp</action>
+        </radiobutton>
+        <radiobutton tooltip-text="Hide the mouse cursor permanently">
+            <label>Yes</label>
+            <variable>cursorHidePerm</variable>
+            <default>true</default>
+            <action>if true disable:hideSeconds</action>
+            <action>if true echo "hide_mouse=yes" > '${TMPDIR}'/mouse.tmp</action>
+            <action>if true rm -f '${TMPDIR}'/mouse-seconds.tmp</action>
+        </radiobutton>
+        </hbox>
+        <hbox width-request="452"><text><label>""</label></text></hbox>
+    </hbox>
+    <hbox>
+        <text><label>Hide after X seconds of inactivity:</label></text>
+        <entry sensitive="false">
+        <variable>hideSeconds</variable>
+        <default>5</default>
+        <action signal="changed">echo "hide_mouse=$hideSeconds" > '${TMPDIR}'/mouse-seconds.tmp</action>
+        </entry>
+    </hbox>
+    <hbox>
+            <button can-default="true" has-default="true">
+                <input file stock="gtk-yes"></input>
+                <label>OK</label>
+            </button>
+    </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    ## Process results if required
+    # Remove doubled settings:
+    [ -e ${TMPDIR}/mouse-seconds.tmp ] && rm ${TMPDIR}/mouse.tmp
+}
+
+
+## Enter a password
+## $1=title
+## $2=text
+## $3=tag
+gtk_password(){
+    local tag=$3
+
+    if [ "${tag}" == "root" ]; then
+        if [ -e ${TMPDIR}/root.tmp ]; then
+        continue
+        exit
+        fi
+    fi
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>'$1'</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" width-request="540" wrap="true" selectable="true"><label>'$2'</label></text>
+        <text><label>""</label></text>
+        <hbox>
+            <text><label>Password: </label></text>
+            <entry visibility="true" sensitive="true" editable="true" activates_default="true" is-focus="true">
+                <variable>p1</variable>
+                <action signal="changed" type="enable">p2</action>
+            </entry>
+        </hbox>
+        <hbox>
+            <text><label>Password: </label></text>
+            <entry visibility="true" sensitive="false" editable="true" activates_default="true">
+                <variable>p2</variable>
+                <action signal="changed" function="show">txtFail</action>
+                <action signal="changed" function="show">img1</action>
+                '"`if [ "$tag" == "vnc" ]; then echo '<action signal="changed" condition="command_is_true( [ $p1 == $p2 ] && echo true )">echo true '${TMPDIR}'/enablevnc.mon</action>'; fi`"'
+                <action signal="changed" condition="command_is_true( [ $p1 == $p2 ] && echo true )">cp -L $IMAGETWO ${TMPDIR}/img.png</action>
+                <action signal="changed" condition="command_is_true( [ $p1 == $p2 ] && echo true )">hide:txtFail</action>
+                <action signal="changed" condition="command_is_true( [ $p1 == $p2 ] && echo true )">show:txtPass</action>
+                <action signal="changed" condition="command_is_true( [ $p1 == $p2 ] && echo true )">echo $p1 > ${TMPDIR}/key</action>
+                <action signal="changed" condition="command_is_true( [ $p1 == $p2 ] && echo true )">enable:btnPass</action>
+                <action signal="changed">refresh:p2</action>
+                <action signal="changed" condition="command_is_false( [ $p1 != $p2 ] && echo false )">cp -L $IMAGEONE ${TMPDIR}/img.png</action>
+                <action signal="changed" condition="command_is_false( [ $p1 != $p2 ] && echo false )">hide:txtPass</action>
+                <action signal="changed" condition="command_is_false( [ $p1 != $p2 ] && echo false )">show:txtFail</action>
+                <action signal="changed" condition="command_is_false( [ $p1 != $p2 ] && echo false )">disable:btnPass</action>
+                <action signal="changed" condition="command_is_false( [ $p1 != $p2 ] && echo false )">rm ${TMPDIR}/key 2>/dev/null</action>
+            </entry>
+        </hbox>
+        <hbox>
+        <text visible="false">
+            <label>The passwords match</label>
+            <variable>txtPass</variable>
+        </text>
+        <text visible="false">
+            <label>The passwords do not match</label>
+            <variable>txtFail</variable>
+        </text>
+        <pixmap file-monitor="true" visible="false">
+            <variable>img1</variable>
+            <input file>'${TMPDIR}'/img.png</input>
+            <action signal="file-changed">refresh:img1</action>
+        </pixmap>
+        </hbox>
+        <hbox>
+            <button sensitive="false" can-default="true" has-default="true">
+                <variable>btnPass</variable>
+                <input file stock="gtk-yes"></input>
+                <label>OK</label>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    ## Process password based on tag
+    if [ "$tag" == "root" ]; then
+    ## Make sure a password was entered
+        if [ -f ${TMPDIR}/key ]; then
+            echo "root_password=`cat ${TMPDIR}/key`" > ${TMPDIR}/root.tmp
+            rm ${TMPDIR}/key
+        else
+            echo "ssh_disabled=yes" > ${TMPDIR}/root.tmp
+            echo true > ${TMPDIR}/disablessh.mon
+        fi
+    fi
+
+    ## If user chose VNC then password must be less than 8 characters.
+    ## We don't have 'wc' in busybox either. Hmmm.
+    if [ "$tag" == "vnc" ]; then
+        if [ -e ${TMPDIR}/key ]; then
+            local key=`cat ${TMPDIR}/key`
+            ccount=${#key}
+            echo ${ccount} /tmp/out
+            if [ ${ccount} -gt 8 ]; then
+                rm ${TMPDIR}/key 2>/dev/null
+                #echo true > ${TMPDIR}/disablevnc.mon
+                cp -L ${IMAGEONE} ${TMPDIR}/img.png
+                unset ccount
+                gtk_password "VNC Server Password" "Enter a password. MUST BE 8 CHARACTERS OR LESS" vnc
+                break
+                exit
+                    else
+                echo "vnc_password=${key}" > ${TMPDIR}/vnc-key.tmp
+                rm ${TMPDIR}/key
+            fi
+        fi
+    fi
+
+    ## Replace password not match image in tmp
+    cp -L ${IMAGEONE} ${TMPDIR}/img.png
+}
+
+get_ssh_mode() {
+    local ICONS=/usr/share/pixmaps
+    local TMP=/tmp/`ls -1 /tmp | grep kwiz.`
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="930">
+    <vbox scrollable="false" margin="10">
+        <text><label>""</label></text>
+        <hseparator></hseparator>
+        <hbox>
+        <text width-request="75"><label>""</label></text>
+        <text><label>Port number on which the SSH service will be listening:</label></text>
+        <hbox width-request="25"><text><label>""</label></text></hbox>
+            <entry sensitive="true">
+                <variable>SSHPort</variable>
+                <default>22</default>
+                <action signal="changed">echo "ssh_port=$SSHPort" > '${TMPDIR}'/sshport.tmp</action>
+            </entry>
+            <text width-request="250"><label>""</label></text>
+        </hbox>
+        <hseparator></hseparator>
+        <text width-request="25"><label>""</label></text>
+        <hbox>
+            <pixmap><input file>'${ICONS}'/localhost-48.png</input></pixmap>
+            <vbox>
+                <radiobutton tooltip-text="Listen on all interfaces">
+                    <label>All interfaces</label>
+                    <variable>SSHlocalhostDis</variable>
+                    <default>true</default>
+                    <action>if true rm -f '${TMPDIR}'/ssh-localhost.tmp</action>
+                </radiobutton>
+                <radiobutton tooltip-text="Listen on localhost interface only">
+                    <label>Localhost only</label>
+                    <variable>SSHlocalhostEn</variable>
+                    <default>false</default>
+                    <action>if true echo "ssh_localhost_only=yes" > '${TMPDIR}'/ssh-localhost.tmp</action>
+                </radiobutton>
+            </vbox>
+            <text width-request="10"><label>""</label></text>
+            <text yalign="0" width-request="570" wrap="true">
+                <label>By default the SSH service listens on all available network interfaces. For security reasons it may be required to configure the SSH daemon to listen on localhost (127.0.0.1) address only. You may enable this option if you use Porteus Kiosk Server version "Premium" for handling SSH connections to the clients. In other cases this function will make the SSH service unusable.</label>
+            </text>
+            <hbox width-request="25"><text><label>""</label></text></hbox>
+        </hbox>
+        <hbox>
+            <button can-default="true" has-default="true">
+                <input file stock="gtk-yes"></input>
+                <label>OK</label>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+get_vnc_mode(){
+    local ICONS=/usr/share/pixmaps
+    local TMP=/tmp/`ls -1 /tmp | grep kwiz.`
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+        <hbox>
+            <text width-request="10"><label>""</label></text>
+            <pixmap><input file>'${ICONS}'/vnc-48.png</input></pixmap>
+            <vbox>
+                <radiobutton tooltip-text="Select view only VNC mode">
+                    <label>View-only mode</label>
+                    <default>true</default>
+                    <action>if true rm '${TMP}'/vnc-control.tmp 2>/dev/null</action>
+                </radiobutton>
+                <radiobutton tooltip-text="Select interactive VNC mode">
+                    <label>Interactive mode</label>
+                    <default>false</default>
+                    <action>if true echo "vnc_interactive=yes" > '${TMP}'/vnc-control.tmp</action>
+                </radiobutton>
+                <radiobutton tooltip-text="Select query user VNC mode">
+                    <label>Query user mode</label>
+                    <default>false</default>
+                    <action>if true echo "vnc_query_user=yes" > '${TMP}'/vnc-control.tmp</action>
+                </radiobutton>
+            </vbox>
+            <text width-request="10"><label>""</label></text>
+            <text yalign="0" width-request="550" wrap="true">
+                <label>Choose a mode to connect to the VNC server. Interactive mode gives full interactive control to the computer that connects to the kiosk. Query user mode displays a popup window prior to establishing vnc connection and ask the kiosk user if incoming VNC conneciton should be allowed, reject or allowed in view-only mode.</label>
+            </text>
+            <hbox width-request="10"><text><label>""</label></text></hbox>
+        </hbox>
+        <text><label>""</label></text>
+        <hbox>
+            <pixmap><input file>'${ICONS}'/localhost-48.png</input></pixmap>
+            <vbox>
+                <radiobutton tooltip-text="Listen on all interfaces">
+                    <label>All interfaces</label>
+                    <variable>VNClocalhostDis</variable>
+                    <default>true</default>
+                    <action>if true rm -f '${TMPDIR}'/vnc-localhost.tmp</action>
+                </radiobutton>
+                <radiobutton tooltip-text="Listen on localhost interface only">
+                    <label>Localhost only</label>
+                    <variable>VNClocalhostEn</variable>
+                    <default>false</default>
+                    <action>if true echo "vnc_localhost_only=yes" > '${TMPDIR}'/vnc-localhost.tmp</action>
+                </radiobutton>
+            </vbox>
+            <text width-request="25"><label>""</label></text>
+            <text yalign="0" width-request="535" wrap="true">
+                <label>By default the VNC service listens on all available network interfaces. For security reasons it may be required to configure the VNC daemon to listen on localhost (127.0.0.1) address only. You may enable this option if you use Porteus Kiosk Server version "Premium" for handling VNC connections to the clients, you will be tunnelling VNC connection over SSH, utilizing websocket proxy or similar.</label>
+            </text>
+            <hbox width-request="25"><text><label>""</label></text></hbox>
+        </hbox>
+        <hbox>
+            <button can-default="true" has-default="true">
+                <input file stock="gtk-yes"></input>
+                <label>OK</label>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+get_vnc_server(){
+    local ICONS=/usr/share/pixmaps
+    local TMP=/tmp/`ls -1 /tmp | grep kwiz.`
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+        <text><label>""</label></text>
+        <hbox>
+            <pixmap><input file>'${ICONS}'/localhost-48.png</input></pixmap>
+            <vbox>
+                <radiobutton tooltip-text="Listen on all interfaces">
+                    <label>All interfaces</label>
+                    <variable>VNClocalhostDis</variable>
+                    <default>true</default>
+                    <action>if true rm -f '${TMPDIR}'/vnc-localhost.tmp</action>
+                </radiobutton>
+                <radiobutton tooltip-text="Listen on localhost interface only">
+                    <label>Localhost only</label>
+                    <variable>VNClocalhostEn</variable>
+                    <default>false</default>
+                    <action>if true echo "vnc_localhost_only=yes" > '${TMPDIR}'/vnc-localhost.tmp</action>
+                </radiobutton>
+            </vbox>
+            <text width-request="25"><label>""</label></text>
+            <text yalign="0" width-request="535" wrap="true">
+                <label>By default the VNC service listens on all available network interfaces. For security reasons it may be required to configure the VNC daemon to listen on localhost (127.0.0.1) address only. Enable this option if you are planning to tunnel VNC connection from Porteus Kiosk Server to your PC over SSH.</label>
+            </text>
+            <hbox width-request="25"><text><label>""</label></text></hbox>
+        </hbox>
+        <hbox>
+            <button can-default="true" has-default="true">
+                <input file stock="gtk-yes"></input>
+                <label>OK</label>
+            </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}
+
+get_printer_info(){
+    # Create printers db:
+    cat /opt/scripts/files/wizard/printers.d/* | cut -d'"' -f2- | sort -u > ${TMPDIR}/printer-models
+    echo "All models - display full list of available printers" > ${TMPDIR}/printer-mfg
+    cut -d" " -f1 ${TMPDIR}/printer-models | sed 's/^Texas/Texas Instruments/g' | sort -u >> ${TMPDIR}/printer-mfg
+
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Printer Manufacturer</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" wrap="true"><label>Select your printer manufacturer from the list:</label></text>
+        <list>
+            <height>450</height>
+            <variable>pmfg</variable>
+            <input file>'${TMPDIR}'/printer-mfg</input>
+            <action>echo $pmfg > '${TMPDIR}'/printer-choice</action>
+        </list>
+        <hbox>
+        <button can-default="true" has-default="true">
+            <label>OK</label>
+            <input file stock="gtk-yes"></input>
+            <action condition="command_is_true( [ `cat '${TMPDIR}'/printer-choice | grep -c '"'All models'"'` -eq 0 ] && echo true )">grep -i "^$pmfg" '${TMPDIR}'/printer-models | sort -u > /opt/scripts/files/wizard/printer_models.txt</action>
+            <action condition="command_is_true( [ `cat '${TMPDIR}'/printer-choice | grep -c '"'All models'"'` -eq 1 ] && echo true )">grep -v "All models" '${TMPDIR}'/printer-models | sort -u > /opt/scripts/files/wizard/printer_models.txt</action>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    ## Send the first printer on the list (already selected) to tmp file
+    ## for processing later
+    cat /opt/scripts/files/wizard/printer_models.txt | head -n1 > ${TMPDIR}/printer-model.tmp
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Choose your printer options</span>"</label></text>
+        <hseparator></hseparator>
+        <tree auto-refresh="true" column-header-active="false" scrollable="true">
+            <label>Select your printer model from the list:</label>
+            <height>350</height>
+            <variable>tblPrinter</variable>
+            <input file>/opt/scripts/files/wizard/printer_models.txt</input>
+            <action signal="changed">echo printer_model=$tblPrinter > '${TMPDIR}'/printer-model.tmp</action>
+        </tree>
+        <hbox>
+        <text><label>Search for printer:</label></text>
+        <hbox width-request="25"><text><label>""</label></text></hbox>
+        <entry sensitive="true">
+        <variable>prntSearch</variable>
+        <default>" "</default>
+        <action signal="changed">grep -i "$prntSearch" '${TMPDIR}'/printer-models | sort -u > /opt/scripts/files/wizard/printer_models.txt; echo printer_model=$(head -n1 /opt/scripts/files/wizard/printer_models.txt) > '${TMPDIR}'/printer-model.tmp</action>
+        </entry>
+        </hbox>
+        <hseparator></hseparator>
+        <hbox>
+        <text><label>Printer connection type: </label></text>
+        <hbox width-request="330"><text><label>""</label></text></hbox>
+            <radiobutton tooltip-text="Choose this option if your printer is attached directly to the kiosk PC through the usb, parallel or serial cable">
+                <label>Direct connection</label>
+                <variable>prntDirect</variable>
+                <default>true</default>
+                <action>if true disable:prntPath</action>
+                <action>if true echo printer_connection=direct > '${TMPDIR}'/printer-connection.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Hover the mouse over the input field to see examples for network printers">
+                <label>Remote connection</label>
+                <variable>prntRemote</variable>
+                <default>false</default>
+                <action>if true echo "printer_connection=lpd://ip_address/queue" > '${TMPDIR}'/printer-connection.tmp</action>
+                <action>if true enable:prntPath</action>
+            </radiobutton>
+        </hbox>
+        <hbox>
+        <text><label>Network printer URI: </label></text>
+        <entry sensitive="false" tooltip-markup="
+    <b>Examples for a printers connected over the network.</b>
+
+    <b>Remote CUPS server with a printer attached to it:</b>
+    http://ip_address:631/printers/printer_name
+    ipp://ip_address/printers/printer_name
+
+    <b>Standalone network printer:</b>
+    lpd://ip_address/queue
+
+    <b>AppSocket/HP JetDirect connection:</b>
+    socket://ip_address
+    socket://ip_address:9100">
+            <variable>prntPath</variable>
+            <default>lpd://ip_address/queue</default>
+            <action signal="changed">echo "printer_connection=$prntPath" > '${TMPDIR}'/printer-connection.tmp</action>
+        </entry>
+        </hbox>
+        <hbox>
+        <text><label>Silent printing: </label></text>
+        <hbox width-request="590"><text><label>""</label></text></hbox>
+        <hbox>
+            <radiobutton tooltip-text="Keep the silent printing disabled">
+                <label>No</label>
+                <variable>prntSilentDis</variable>
+                <default>true</default>
+                <action>if true rm -f '${TMPDIR}'/silent-printing.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Enable silent printing in kiosk">
+                <label>Yes</label>
+                <variable>prntSilentEn</variable>
+                <default>false</default>
+                <action>if true echo silent_printing=yes > '${TMPDIR}'/silent-printing.tmp</action>
+            </radiobutton>
+        </hbox>
+        </hbox>
+        <hbox>
+        <text width-request="695" selectable="true"><label>Share kiosk printer under following URI '"'ipp://kioskIP:631/printers/kiosk-printer'"': </label></text>
+        <hbox>
+            <radiobutton tooltip-text="Do not share the kiosk printer">
+                <label>No</label>
+                <variable>prntShareDis</variable>
+                <default>true</default>
+                <action>if true rm -f '${TMPDIR}'/share-printer.tmp</action>
+            </radiobutton>
+            <radiobutton tooltip-text="Share kiosk printer">
+                <label>Yes</label>
+                <variable>prntShareEn</variable>
+                <default>false</default>
+                <action>if true echo share_printer=yes > '${TMPDIR}'/share-printer.tmp</action>
+            </radiobutton>
+        </hbox>
+        </hbox>
+        <hbox>
+        <text><label>Printer name:</label></text>
+        <hbox width-request="25"><text><label>""</label></text></hbox>
+        <entry sensitive="true">
+        <variable>prntName</variable>
+        <default>kiosk-printer</default>
+        <action signal="changed">echo "printer_name=$prntName" > '${TMPDIR}'/printer-name.tmp</action>
+        </entry>
+        </hbox>
+        <hbox>
+            <button>
+            <label>Print test page</label>
+            <input file>/usr/share/pixmaps/printer-48.png</input>
+            <width>22</width>
+            <action>/opt/scripts/print-test; sed -i "s/ C-p / /g" /etc/xdg/openbox/rc.xml; openbox --reconfigure; su - guest -c "DISPLAY=:0 firefox /tmp/print http://127.0.0.1:631/jobs file:///var/log/cups/error_log"</action>
+            </button>
+            <button ok></button>
+        </hbox>
+    </vbox>
+    </window>
+'|gtkdialog -s -c
+}
+
+process_settings(){
+
+    ## Get all values from /tmp files into /tmp/config
+    for a in ${TMPDIR}/*.tmp; do cat ${a} >> /tmp/config; done
+
+    ## Add additional components to /tmp/config
+    if [ "`ls ${TMPDIR}/*.add 2>/dev/null`" ]; then
+        for a in ${TMPDIR}/*.add; do ADDS="`cat ${a}` ${ADDS}"; done
+        echo additional_components="$ADDS" >> /tmp/config
+    fi
+
+    ## Delete root password if both ssh/printing components are disabled:
+    egrep -q 'ssh.xzm|printing.xzm' /tmp/config || sed -i '/^root_password=/d' /tmp/config
+}
+
+test_input(){
+    dunstify -u low -i /usr/share/icons/oxygen/22x22/actions/dialog-ok-apply.png "Input devices disabled for 10 seconds ..."
+    xinput | egrep -v 'Virtual core| Button' | cut -d= -f2 | cut -d[ -f1 | while read line; do xinput --disable ${line} 2>/dev/null; done
+    sleep 10
+    dunstify -u low -i /usr/share/icons/oxygen/22x22/actions/dialog-ok-apply.png "Input devices enabled"
+    xinput | egrep -v 'Virtual core| Button' | cut -d= -f2 | cut -d[ -f1 | while read line; do xinput --enable ${line} 2>/dev/null; done
+}
+
+
+if [ -e /sbin/fstab-update ]; then
+	upre=/sbin/fstab-update
+	upos=/sbin/udev-fstab-update
+else
+	upre=/sbin/udev-automount-disabled
+	upos=/sbin/udev-automount
+fi
+
+gtk_lconfig(){
+    # Load kiosk config from removable device
+    cp -a ${upre} ${upos}
+    sed -i 's/$browser/$bro/g' -i ${upos}
+
+    echo '<window title="Kiosk Wizard" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox margin="10">
+            <text label=""></text>
+            <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'large'"'>Load kiosk config from removable device</span>"</label></text>
+            <text label=""></text>
+            <text xalign="0" width-request="720" label="Supported devices are: optical media, usb sticks, usb drives and flash cards (MMC/SD) formatted with ISO9660, UDF, FAT, NTFS or XFS filesystem and with one partition only."></text>
+            <text label=""></text>
+            <text xalign="0" width-request="720" label="You must follow the instructions step by step. When inserted your removable device will be automounted under the /media folder. If your device is plugged already then you must remove it and plug in again."></text>
+            <text xalign="0" width-request="720"><label>"
+    1. Plug in your storage device and wait on a confirmation that it was automounted in the system.
+    2. Provide path to previously generated kiosk config or select it manually through the filepicker.
+    3. Click '"'Load config'"' button to transfer kiosk settings from the device to the wizard."</label></text>
+            <hbox>
+            <text xalign="0" label="Check the video tutorial when in troubles:  "></text>
+            <button>
+                <label>Tutorial</label>
+                <action>killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 firefox https://youtu.be/gtCQ3iVmDWw &"; sleep 3</action>
+            </button>
+            <text width-request="450" xalign="0" label=""></text>
+            </hbox>
+            <text label=""></text>
+            <hseparator></hseparator>
+            <hbox>
+                    <text label="Config path:" width-request="150"></text>
+                    <entry editable="true" fs-title="Select an existing config" fs-action="file" fs-folder="/media">
+                            <input>echo /media/kiosk-config.txt</input>
+                            <variable>SPATH</variable>
+                    </entry>
+                    <button>
+                            <input file stock="gtk-directory"></input>
+                            <action>fileselect:SPATH</action>
+                    </button>
+            </hbox>
+            <text label=""></text>
+    <hbox>
+                    <button cancel></button>
+                    <button>
+                            <label>Load config</label>
+                            <input file stock="gtk-yes"></input>
+                            <action>echo $SPATH > /tmp/user-path</action>
+                            <action function="exit">finished</action>
+                    </button>
+    </hbox>
+    </vbox>
+    </window>
+    ' | gtkdialog -s -c
+
+    if test -e /tmp/user-path; then
+        if cp -f `cat /tmp/user-path` /tmp/config; then
+        fromdos /tmp/config; fromdos /tmp/config; fromdos /tmp/config; tr -dc "[:alnum:][:space:][:punct:]" < /tmp/config > /tmp/conf; mv /tmp/conf /tmp/config
+        # Handle GLOBAL configs:
+        if grep -q '^\[\[.*GLOBAL.*\]\]' /tmp/config; then
+            sed -n '/^\[\[.*'${pcid}'.*\]\]/,/^$/p' /tmp/config | egrep -v '^\[|^\#|^$' > /tmp/conf
+            sed -e '/^\[\[.*GLOBAL.*\]\]/d' -e '/^\[\[/q' /tmp/config | egrep -v '^\[|^\#|^$' >> /tmp/conf
+            mv /tmp/conf /tmp/config
+        fi
+        dunstify -u normal -i ${PTH}/actions/dialog-ok-apply.png "Kiosk config loaded successfully - you can eject removable device now."
+        else
+        dunstify -u critical -i ${PTH}/status/dialog-warning.png "Could not load the kiosk config - incorrect path? Please try again ..."
+        fi
+    else
+        dunstify -u normal -i ${PTH}/actions/dialog-ok-apply.png "Action canceled - you can eject removable device safely."
+    fi
+    umount /media 2>/dev/null
+    rm -f /tmp/user-path ${upos}
+}
+
+gtk_sconfig(){
+    # Save kiosk config on removable device
+    cp -a ${upre} ${upos}
+    sed -e 's/MOPT="ro"/MOPT="rw"/g' -e 's/$browser/$bro/g' -i ${upos}
+
+    echo '<window title="Kiosk Wizard" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox margin="10">
+            <text label=""></text>
+            <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'large'"'>Save kiosk config on removable device</span>"</label></text>
+            <text label=""></text>
+            <text use-markup="true" xalign="0" width-request="720" label="Supported devices are: usb sticks, usb drives and flash cards (MMC/SD) formatted with FAT, NTFS or XFS filesystem and with one partition only. <span weight='"'bold'"' color='"'red'"'>Kiosk installation media cant be used for this task as is read only, please use some other removable device</span>. In case of doing manual edits to the config under Windows plese make sure its saved with ANSI or UTF-8 encoding rather than UTF-16 (Unicode) which is not supported in kiosk."></text>
+            <text label=""></text>
+            <text xalign="0" width-request="720" label="You must follow the instructions step by step. When inserted your removable device will be automounted under the /media folder. If your device is plugged already then you must remove it and plug in again."></text>
+            <text xalign="0" width-request="720"><label>"
+    1. Plug in your storage device and wait on a confirmation that it was automounted in the system.
+    2. Enter the name of your kiosk config and select folder where it should be saved on the storage device.
+    3. Click on '"'Save config'"' button to transfer the config on the device."</label></text>
+            <hbox>
+            <text xalign="0" label="Check the video tutorial when in troubles:  "></text>
+            <button>
+                <label>Tutorial</label>
+                <action>killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 firefox https://youtu.be/gtCQ3iVmDWw &"; sleep 3</action>
+            </button>
+            <text width-request="450" xalign="0" label=""></text>
+            </hbox>
+            <text label=""></text>
+            <hseparator></hseparator>
+            <hbox>
+                    <text label="Config name:                "></text>
+                    <entry>
+                            <input>echo kiosk-config.txt</input>
+                            <variable>SNAME</variable>
+                    </entry>
+            </hbox>
+            <hseparator></hseparator>
+            <hbox>
+                    <text label="Saving location:" width-request="150"></text>
+                    <entry editable="true" fs-title="Select an existing folder" fs-action="folder" fs-folder="/media">
+                            <input>echo /media</input>
+                            <variable>SDIR</variable>
+                    </entry>
+                    <button>
+                            <input file stock="gtk-directory"></input>
+                            <action>fileselect:SDIR</action>
+                    </button>
+            </hbox>
+            <text label=""></text>
+    <hbox>
+                    <button cancel></button>
+                    <button>
+                            <label>Save config</label>
+                            <input file stock="gtk-yes"></input>
+                            <action>echo $SDIR/$SNAME > /tmp/user-path</action>
+                            <action function="exit">finished</action>
+                    </button>
+    </hbox>
+    </vbox>
+    </window>
+    ' | gtkdialog -s -c
+
+    if test -e /tmp/user-path; then
+        ln -sf /usr/bin/fromdos /usr/bin/todos
+        cp -f /tmp/config `cat /tmp/user-path` && { todos `cat /tmp/user-path`; dunstify -u normal -i ${PTH}/actions/dialog-ok-apply.png "Kiosk config saved successfully - you can eject removable device now."; } || dunstify -u critical -i ${PTH}/status/dialog-warning.png "Could not save the kiosk config - suspecting unsupported filesystem or read only media. Please try again with device formatted with FAT, NTFS or XFS filesystem."
+    else
+        dunstify -u normal -i ${PTH}/actions/dialog-ok-apply.png "Action canceled - you can eject removable device safely."
+    fi
+    umount /media 2>/dev/null
+    rm -f /tmp/user-path ${upos}
+}
+
+gtk_sISO(){
+    # Save kiosk ISO on removable device
+    cp -a ${upre} ${upos}
+    sed -e 's/MOPT="ro"/MOPT="rw"/g' -e 's/$browser/$bro/g' -i ${upos}
+
+    echo '<window title="Kiosk Wizard" icon-name="kiosk" resizable="false" width-request="830">
+    <vbox margin="10">
+            <text label=""></text>
+            <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'large'"'>Save kiosk ISO on removable device</span>"</label></text>
+            <text label=""></text>
+            <text use-markup="true" xalign="0" width-request="720" label="Supported devices are: usb sticks, usb drives and flash cards (MMC/SD) formatted with FAT, NTFS or XFS filesystem and with one partition only. <span weight='"'bold'"' color='"'red'"'>Kiosk installation media cant be used for this task as is read only, please use some other removable device</span>."></text>
+            <text label=""></text>
+            <text xalign="0" width-request="720" label="You must follow the instructions step by step. When inserted your removable device will be automounted under the /media folder. If your device is plugged already then you must remove it and plug in again."></text>
+            <text xalign="0" width-request="720"><label>"
+    1. Plug in your storage device and wait on a confirmation that it was automounted in the system.
+    2. Enter the name of your kiosk ISO and select folder where it should be saved on the storage device.
+    3. Click on '"'Save ISO'"' button to create the ISO and transfer it on the device."</label></text>
+            <hbox>
+            <text xalign="0" label="Check the video tutorial when in troubles:  "></text>
+            <button>
+                <label>Tutorial</label>
+                <action>killall firefox chrome 2>/dev/null; su - guest -c "DISPLAY=:0 firefox https://youtu.be/gtCQ3iVmDWw &"; sleep 3</action>
+            </button>
+            <text width-request="450" xalign="0" label=""></text>
+            </hbox>
+            <text label=""></text>
+            <hseparator></hseparator>
+            <hbox>
+                    <text label="ISO name:                     "></text>
+                    <entry>
+                            <input>echo Porteus-Kiosk.iso</input>
+                            <variable>SNAME</variable>
+                    </entry>
+            </hbox>
+            <hseparator></hseparator>
+            <hbox>
+                    <text label="Saving location:" width-request="150"></text>
+                    <entry editable="true" fs-title="Select an existing folder" fs-action="folder" fs-folder="/media">
+                            <input>echo /media</input>
+                            <variable>SDIR</variable>
+                    </entry>
+                    <button>
+                            <input file stock="gtk-directory"></input>
+                            <action>fileselect:SDIR</action>
+                    </button>
+            </hbox>
+            <text label=""></text>
+    <hbox>
+            <button cancel></button>
+            <button>
+                    <label>Save ISO</label>
+                    <input file stock="gtk-yes"></input>
+                    <action>echo $SDIR/$SNAME > /tmp/user-path</action>
+                    <action function="exit">finished</action>
+            </button>
+    </hbox>
+    </vbox>
+    </window>
+    ' | gtkdialog -s -c
+    if [ -e /tmp/user-path ]; then
+        echo "save_path=`cat /tmp/user-path`" >> /tmp/config
+        rm -f /tmp/user-path ${upos}
+        killall gtkdialog 2>/dev/null
+    else
+        umount /media 2>/dev/null
+        rm -f ${upos}
+        dunstify -u normal -i ${PTH}/actions/dialog-ok-apply.png "Action canceled - you can eject removable device safely."
+    fi
+}
+
+calibrate(){
+    rm -f ${TMPDIR}/calibration.$1
+    xinput_calibrator --output-type xinput --device $1  >> ${TMPDIR}/calibration.$1 2>&1
+
+    if tail -n1 ${TMPDIR}/calibration.$1 | grep -q "^Error:"; then
+        dunstify -u normal -i ${PTH}/status/dialog-warning "Action canceled: No calibratable devices found."
+    elif [ -e /opt/scripts/files/calibration.append.$1 ]; then
+        cat /opt/scripts/files/calibration.append.$1 >> ${TMPDIR}/calibration.$1
+        tcal=`grep "xinput set-int-prop" ${TMPDIR}/calibration.$1 | tr -s " " | cut -d" " -f4- | tr '\n' '|' | sed -e 's/.$//' -e 's_|_ | _g'`
+        dunstify -u critical -i /usr/share/icons/oxygen/32x32/status/dialog-information.png "Touchscreen calibrated succesfully as:\n$tcal\n(click on this message to dismiss)"
+        echo "$tcal" > ${TMPDIR}/calibration.tmp.$1
+    elif [ `grep "xinput set-int-prop" ${TMPDIR}/calibration.$1 | wc -l` -gt 1 ]; then
+        grep "xinput set-int-prop" ${TMPDIR}/calibration.$1 | sed 1,1d > /opt/scripts/files/calibration.append.$1
+        dunstify -u critical -i ${PTH}/status/dialog-information.png "Detected swapped Axes - lets calibrate the touchscreen two more times to get most accurate data"; sleep 3
+        xinput_calibrator --output-type xinput --device "`head -n1 /opt/scripts/files/calibration.append.$1 | cut -d'"' -f2`"
+        dunstify -u critical -i ${PTH}/status/dialog-information.png "One more time ..."; sleep 3
+        xinput_calibrator --output-type xinput --device "`head -n1 /opt/scripts/files/calibration.append.$1 | cut -d'"' -f2`" | grep "xinput set-int-prop" > ${TMPDIR}/calibration.$1
+        cat /opt/scripts/files/calibration.append.$1 >> ${TMPDIR}/calibration.$1
+        tcal=`grep "xinput set-int-prop" ${TMPDIR}/calibration.$1 | tr -s " " | cut -d" " -f4- | tr '\n' '|' | sed -e 's/.$//' -e 's_|_ | _g'`
+        dunstify -u critical -i /usr/share/icons/oxygen/32x32/status/dialog-information.png "Touchscreen calibrated succesfully as:\n$tcal\n(click on this message to dismiss)"
+        echo "$tcal" > ${TMPDIR}/calibration.tmp.$1
+    elif [ `grep "xinput set-int-prop" ${TMPDIR}/calibration.$1 | wc -l` -eq 1 ]; then
+        tcal=`grep "xinput set-int-prop" ${TMPDIR}/calibration.$1 | tr -s " " | cut -d" " -f4-`
+        dunstify -u critical -i /usr/share/icons/oxygen/32x32/status/dialog-information.png "Touchscreen calibrated succesfully as:\n$tcal\n(click on this message to dismiss)"
+        echo "$tcal" > ${TMPDIR}/calibration.tmp.$1
+    else
+        dunstify -u normal -i ${PTH}/status/dialog-warning.png "Action canceled: calibration not performed by the user."
+    fi
+    }
+
+    gtk_calibrate(){
+    sed -i 's/button="C-Left"/button="S-Left"/' /etc/xdg/openbox/rc.xml; openbox --reconfigure
+    rm -f ${TMPDIR}/calibrate.choice ${TMPDIR}/calibration.tmp.*
+    xinput_calibrator --list > ${TMPDIR}/calibrate.dev
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="850" height-request="300">
+    <vbox scrollable="false" margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Device choice</span>"</label></text>
+        <hseparator></hseparator>
+        <tree column-header-active="false" selection-mode="3" selected-row="0">
+            <label>Select device which you want to calibrate. Use Ctrl + left mouse click to select multiple devices:</label>
+            <variable>tblChoice</variable>
+            <input file>'${TMPDIR}'/calibrate.dev</input>
+        </tree>
+        <hbox>
+        <button can-default="true" has-default="true">
+            <label>Calibrate</label>
+            <input file stock="gtk-yes"></input>
+            <action>echo $tblChoice | egrep -o " id=[^ ]+" | cut -d= -f2 | while read pc; do echo $pc >> '${TMPDIR}'/calibrate.choice; done</action>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+
+    # Support for multiple devices:
+    for pc in `cat ${TMPDIR}/calibrate.choice`; do
+        dunstify -u critical "Calibrating device: $(xinput_calibrator --list | grep id=${pc} | cut -d'"' -f2)"
+        sleep 2
+        calibrate ${pc}
+        echo 'touchscreen_device='${pc}'' > ${TMPDIR}/touchdevice.tmp
+        sleep 2
+    done
+
+    tcal=`cat ${TMPDIR}/calibration.tmp.* | tr -s " " | tr '\n' '|' | sed -e 's/.$//' -e 's_|_ | _g'`
+    echo 'touchscreen_calibration='${tcal}'' > ${TMPDIR}/calibration.tmp
+    #rm -f ${TMPDIR}/calibration.tmp.*
+}
+
+test_screen(){
+    v=${TMPDIR}/vars.txt
+    for a in dis1 dis2 dis3 dis4 dis5; do
+            if [ "`grep ${a}chk= $v`" ]; then
+            b=`grep ${a} ${TMPDIR}/dis.txt|cut -d ':' -f2`
+            if [ `grep ${a}chk= ${v}|cut -d"'" -f2` = "false" ]; then
+                    tstset="$tstset $b:disabled"
+                        else
+                    ores=`grep cmb${a}res= ${v}|cut -d"'" -f2`
+                    oref=`grep cmb${a}rat= ${v}|cut -d"'" -f2`
+                    obri=`grep ${a}bri= ${v}|cut -d"'" -f2`
+                    [ -z ${obri} ] && obri=normal
+                    orot=`grep ${a}rot= ${v}|cut -d"'" -f2`
+                    opos=`grep ${a}pos= ${v}|cut -d"'" -f2`
+                    [ "$opos" = "normal" ] || opos=`grep ${a}pos= ${v}|cut -d "'" -f2 | tr ' ' '-'`
+                    tstset="${tstset} ${b}:${ores}:${oref}:${obri}:${orot}:${opos}"
+            fi
+            fi
+    done
+    rm -f ${v}
+    sset="test ${tstset}"
+    /opt/bin/setscreen ${sset}
+}
+
+get_shutdown(){
+    # Cleanup first:
+    TDRES=/opt/scripts/files/shutdown-menu
+    rm -f ${TDRES}/*
+    echo true > ${TDRES}/shutdown
+    echo true > ${TDRES}/reboot
+    echo false > ${TDRES}/sleep
+    # echo false > ${TDRES}/restart-session
+    echo '<window title="User input" icon-name="kiosk" resizable="false" width-request="850" height-request="385">
+    <vbox margin="10">
+        <text use-markup="true" yalign="1"><label>"<span weight='"'bold'"' size='"'x-large'"'>Shutdown options</span>"</label></text>
+        <hseparator></hseparator>
+        <text xalign="0" wrap="true"><label>Select options which should be available in the shutdown menu:</label></text>
+        <vbox border-width="10" spacing="10" scrollable="true">
+        <checkbox><label>Shutdown</label>
+            <input file>"'${TDRES}'/shutdown"</input>
+            <action>if true echo true > '${TDRES}'/shutdown</action>
+            <action>if false rm -f '${TDRES}'/shutdown</action>
+        </checkbox>
+        <checkbox><label>Reboot</label>
+            <input file>"'${TDRES}'/reboot"</input>
+            <action>if true echo true > '${TDRES}'/reboot</action>
+            <action>if false rm -f '${TDRES}'/reboot</action>
+        </checkbox>
+        <checkbox><label>Sleep</label>
+            <input file>"'${TDRES}'/sleep"</input>
+            <action>if true echo true > '${TDRES}'/sleep</action>
+            <action>if false rm -f '${TDRES}'/sleep</action>
+        </checkbox>
+        </vbox>
+        <hbox>
+        <button can-default="true" has-default="true">
+            <label>Test</label>
+            <input file icon="system-shutdown"></input>
+            <action>xdotool key Ctrl+Alt+Delete</action>
+        </button>
+        <button can-default="true" has-default="true">
+            <label>OK</label>
+            <input file stock="gtk-yes"></input>
+            <action>echo "shutdown_menu=$(ls -1 /opt/scripts/files/shutdown-menu | tr "\n" " ")" > '${TMPDIR}'/shudowncombo.tmp</action>
+            <action function="exit">finished</action>
+        </button>
+        </hbox>
+    </vbox>
+    </window>
+    '|gtkdialog -s -c
+}

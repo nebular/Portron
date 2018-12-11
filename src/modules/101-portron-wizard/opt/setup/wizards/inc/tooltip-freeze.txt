@@ -1,0 +1,9 @@
+This state is a generic, pure software, low-power state.
+It allows more energy to be saved by freezing user space
+and putting all devices into low-power states such that
+the processors can spend more time in their idle states.
+
+This state can be used for platforms without
+Standby/Suspend-to-RAM support, or it can be used in 
+addition to Suspend-to-RAM (memory sleep)
+to provide reduced resume latency.

@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Display initialization script.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+for dis in `xrandr | grep -w connected | cut -d' ' -f1`; do
+    [ "$1" != cres ] && resolution="--output $dis --mode $1"
+    [ "$2" != crate ] && rate="--rate $2"
+    xrandr $resolution $rate
+done

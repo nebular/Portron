@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Run local commands when system is going down (reboot/shutdown).
+# Examples:
+# - kill processes gracefully
+# - stop LAMP services
+# - unmount remote share or persistent storage

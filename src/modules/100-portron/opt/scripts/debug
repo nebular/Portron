@@ -1,0 +1,132 @@
+#!/bin/bash
+#
+# Gather debugging info.
+# Author: T.Jokiel <http://porteus-kiosk.org>
+
+# Variables:
+info=/var/log/debug
+
+# Clear previous log:
+[ "$1" ] || echo -e 'Please copy (Ctrl+a -> Ctrl+c) and send this report to support@porteus-kiosk.org in case of hardware/software/configuration issues.\n\n' > $info
+
+# Collect kiosk data:
+echo "" >> $info
+echo "VERSION:" >> $info
+cat /etc/version >> $info
+echo "" >> $info
+echo "HOSTNAME:" >> $info
+hostname >> $info
+echo "" >> $info
+echo "HWCLOCK/DATE:" >> $info
+hwclock -r >> $info
+date >> $info
+echo "" >> $info
+echo "UPTIME:" >> $info
+uptime | cut -d' ' -f2- >> $info
+echo "" >> $info
+echo "CHEATCODES:" >> $info
+cat /proc/cmdline >> $info
+echo "" >> $info
+echo "KERNEL:" >> $info
+echo `uname -r` >> $info
+echo "" >> $info
+echo "PROCESSOR:" >> $info
+cat /proc/cpuinfo | sed -n '1,/processor/p' | sed '$ d' >> $info
+echo "" >> $info
+echo "MEMORY/SWAP:" >> $info
+free -m >> $info
+echo "" >> $info
+echo "BLOCK DEVICES:" >> $info
+ls -1 /sys/block | grep -v loop | sed s/@// >> $info
+blkid >> $info
+lsblk -o NAME,TYPE,MODEL,SIZE | egrep -v 'NAME|loop|part|rom' >> $info
+echo "" >> $info
+echo "MOUNTS:" >> $info
+mount >> $info
+echo "" >> $info
+df -h >> $info
+echo "" >> $info
+echo "PROCESSES:" >> $info
+ps aux | sed '1,/udevd -d/d'  | grep -v 'udevd -d' >> $info
+echo "" >> $info
+echo "TOP PROCESSES:" >> $info
+top -b -n1 | head -n 20 >> $info
+echo "" >> $info
+echo "TEMPERATURE:" >> $info
+sensors >> $info
+echo "" >> $info
+echo "LSPCI:" >> $info
+/usr/sbin/lspci -knn >> $info
+echo "" >> $info
+echo "LSUSB:" >> $info
+lsusb >> $info
+echo "" >> $info
+lsusb -t >> $info
+echo "" >> $info
+echo "SDIO:" >> $info
+udevadm info /sys/bus/sdio/devices/* >> $info
+echo "" >> $info
+echo "LSMOD:" >> $info
+lsmod >> $info
+echo "" >> $info
+echo "NETWORKING:" >> $info
+ls /sys/class/net | tr "\n" " " >> $info
+echo "" >> $info
+ifconfig >> $info
+echo "" >> $info
+route -n >> $info
+echo "" >> $info
+cat /etc/resolv.conf >> $info
+echo "" >> $info
+echo "WIRELESS DATA:" >> $info
+cat /etc/wpa_supplicant.conf >> $info
+rfkill list all >> $info
+iwconfig >> $info
+iwlist `iwconfig | grep ESSID | cut -d" " -f1 | head -n1` sc >> $info
+echo "" >> $info
+echo "FIREWALL:" >> $info
+iptables -L >> $info
+echo "" >> $info
+echo "SERVICES" >> $info
+netstat -nl >> $info
+echo "" >> $info
+echo "SOUND CARDS:" >> $info
+aplay -l >> $info
+echo "" >> $info
+arecord -l >> $info
+echo "" >> $info
+amixer >> $info
+echo "" >> $info
+echo "INPUT DEVICES:" >> $info
+xinput >> $info
+echo "" >> $info
+echo "TOUCH DEVICES:" >> $info
+xinput_calibrator --list >> $info
+echo "" >> $info
+cat /proc/bus/input/devices >> $info
+echo "" >> $info
+echo "LOCAL PRINTERS:" >> $info
+[ "`which cupsd`" ] && { eval `which cupsd`; lpinfo -v >> $info 2>/dev/null; }
+echo "" >> $info
+echo "MTRR:" >> $info
+cat /proc/mtrr >> $info 2>/dev/null
+echo "" >> $info
+echo "SCREEN:" >> $info
+xrandr -display :0 >> $info 2>/dev/null
+echo "" >> $info
+echo "OpenGL info:" >> $info
+glxinfo -B >> $info 2>/dev/null
+echo "" >> $info
+echo "Xorg.0.log:" >> $info
+cat /var/log//Xorg.0.log* >> $info 2>/dev/null
+echo "" >> $info
+echo "System logs:" >> $info
+if test -e /var/log/everything/current; then cat /var/log/everything/current >> $info
+elif test -e /var/log/messages; then cat /var/log/messages >> $info
+else dmesg >> $info
+fi
+echo "" >> $info
+echo
+echo "System report saved as $info"
+
+exit

@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Run local commands when CLI (runlevel 3) is initialized.
+# Examples:
+# - perform configuration tweak
+# - run cli command
+# - crate and mount persistent partition
+
+

@@ -1,0 +1,8 @@
+Portron comes with no guarantees or warranties of any sorts,
+either written or implied.
+
+Portron is a derivative work of Porteus Distribution (http://porteus-kiosk.org),
+which is released under GPL. Check GNU_GPL file for more details.
+
+Individual packages in the distribution may come with their own licences.
+

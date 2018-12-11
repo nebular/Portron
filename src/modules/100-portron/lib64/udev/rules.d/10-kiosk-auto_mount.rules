@@ -1,0 +1,2 @@
+# We don't care about loop* and ram* devices
+KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/sbin/udev-automount %r/%k"
