@@ -1,30 +1,31 @@
-#!/bin/bash
+#!/bin/sh
+
 
 tarfile="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
 image="$(cd "$(dirname "$2")"; pwd)/$(basename "$2")"
 destination="$(cd "$(dirname "$3")"; pwd)/$(basename "$3")"
 
+BASE="$(dirname "$(readlink "$0")")"
+cd ${BASE}
+
 [ "$4" ] && {
     distro=$4
 } || {
-    distro=porteus.default
+    distro=portron.default
 }
 
 longname=$(basename -- "$tarfile")
 longname="${longname%.*.*}"
 appname="${longname%%-*}"
 
-BASE="$(cd "$(dirname "$0")"; pwd)"
-cd ${BASE}
-
 LIB=../lib
 LIB="$(cd "$(dirname "$LIB")"; pwd)/$(basename "$LIB")"
 
-echo "$0 $1 $2 $3 $4"
+echo "$(basename $0) $1 $2 $3 $4"
 echo "--------------------------------------------------------"
 
 
-[ -f ${tarfile} ] && {
+if [ -f ${tarfile} ]; then
 
     echo "- electron tar.gz application ${tarfile}"
     echo "- longname ${longname}"
@@ -36,20 +37,35 @@ echo "--------------------------------------------------------"
 
     xzmfile=/tmp/${appname}.xzm
 
-#     ./electron-tgz2xzm ${tarfile} ${xzmfile} ${appname} ${longname}
+    ./electron-tgz2xzm ${tarfile} ${xzmfile} ${appname} ${longname}
 
     ./electron-xzm2iso ${xzmfile} ${destination} ${appname} ${image} ${distro}
 
-    #rm -f ${xzmfile}
+    rm -f ${xzmfile}
 
-} || {
-    echo "PURPOSE: Create an installable ISO from an electron-builder"
-    echo "Linux application (tar.gz). The resulting ISO can be either"
-    echo "used as a LiveCD / LiveUSB or install to persistent media."
-    echo "ISO is based on porteus-kiosk distribution."
-    echo ""
-    echo "- USAGE: $0 electronapp.tar.gz splashscreen.jpg destination.iso distro_name"
-    echo "- DEPENDENCIES: mksquashfs, isohybrid (source included)"
-    echo "- BASE PORTEUS: in ${LIB}"
-    echo
-}
+    if [ -f "${destination}" ]; then
+
+           if [ "`command -v say`" ]; then
+                say "portron application ${appname} ready!"
+           fi
+    fi
+
+else
+
+    if [ "${tarfile}" ]; then
+        echo "*** Error: Tar file not found."
+        exit 1
+    else
+
+        echo "PURPOSE: Create an installable ISO from an electron-builder"
+        echo "Linux application (tar.gz). The resulting ISO can be either"
+        echo "used as a LiveCD / LiveUSB or install to persistent media."
+        echo "ISO is based on porteus-kiosk distribution."
+        echo ""
+        echo "- USAGE: $(basename $0) electronapp.tar.gz splashscreen.jpg destination.iso distro_name"
+        echo "- DEPENDENCIES: mksquashfs, isohybrid (source included)"
+        echo "- BASE PORTRON: in ${LIB}"
+        echo
+    fi
+
+fi

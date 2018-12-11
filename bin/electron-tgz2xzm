@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 tarfile=$1
 destination=$2
@@ -32,7 +32,7 @@ if [ "${appname}" ]; then
 
             echo "-------------------------------------------------"
 
-            BASE="$(cd "$(dirname "$0")"; pwd)"
+            BASE="$(dirname "$(readlink "$0")")"
             cd ${BASE}/tgz2xzm
 
             rm -f ${destination}

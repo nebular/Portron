@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 an=$0
 xzmfile=$1
@@ -7,6 +7,10 @@ appname=$3
 image=$4
 
 distro=../lib/$5
+
+BASE="$(dirname "$(readlink "$0")")"
+cd ${BASE}
+
 
 xzmfile="$(cd "$(dirname "${xzmfile}")"; pwd)/$(basename "${xzmfile}")"
 image="$(cd "$(dirname "${image}")"; pwd)/$(basename "${image}")"
@@ -36,7 +40,6 @@ if [ "${appname}" ]; then
 
             echo "-------------------------------------------------"
 
-            BASE="$(cd "$(dirname "$0")"; pwd)"
             cd ${BASE}/xzm2iso
 
             [ -f ${xzmfile} ] && {
