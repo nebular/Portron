@@ -1,7 +1,9 @@
+<h1>initial commit - please do not use yer - project is not ready </h1>
+
 <h1>PorTRON 0.4.7.0</h1>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
-<h2>PorTRON: Where Porteus meets Electron,/h2>
+<h2>PorTRON: Where Porteus meets Electron,</h2>
 
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
