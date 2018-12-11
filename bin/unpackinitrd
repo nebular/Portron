@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Portron Builder unpackinitrd
+# (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
+# GNU GPL 2.0
+
 [ -f $1.xz ] && {
 
     mkdir src.$1

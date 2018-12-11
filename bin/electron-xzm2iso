@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Portron Builder electron-xzm2iso
+# (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
+# GNU GPL 2.0
+
 an=$0
 xzmfile=$1
 destination=$2

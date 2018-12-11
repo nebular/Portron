@@ -1,4 +1,7 @@
 #!/bin/sh
+# Portron Builder mkinitrd
+# (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
+# GNU GPL 2.0
 
 if [ "$1" ]; then
     find * | cpio -H newc -o | xz --check=crc32 --x86 --lzma2 > $1

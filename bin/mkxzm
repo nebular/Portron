@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Portron Builder mkxzm
+# (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
+# GNU GPL 2.0
+
 error() {
     echo "${name}, tool to create XZM modules from a directory"
     echo "- USAGE: ${name} destination_module.xzm source_dir/"

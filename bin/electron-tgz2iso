@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Portron Builder electron-tgz2iso
+# (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
+# GNU GPL 2.0
 
 tarfile="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
 image="$(cd "$(dirname "$2")"; pwd)/$(basename "$2")"

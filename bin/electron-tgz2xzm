@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Portron Builder electron-tgz2xzm
+# (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
+# GNU GPL 2.0
+
 tarfile=$1
 destination=$2
 appname=$3
