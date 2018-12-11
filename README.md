@@ -1,6 +1,6 @@
 <h1>initial commit - please do not use yer - project is not ready </h1>
 
-<h1>PorTRON 0.4</h1>
+<h1>PorTRON 0.4 alpha</h1>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
 <h2>PorTRON: Where Porteus meets Electron,</h2>
@@ -8,9 +8,11 @@
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
 
-A One-line script will transform your electron application into an installable ISO
+A One-liner will transform your electron application into an installable ISO
 with a super-slim linux system fine-tuned to launch your electron application in kiosk
-mode, and provide all network and multimedia services.
+mode, and provide all network and multimedia services. The script can be used standalone,
+or ideally integrated into your build system to automatically generate the bootable
+media with the rest of your artifacts.
 
 Portron is based on Porteus-Kiosk distribution, a proven technology that features the
 latest Linux kernel and relevant video, audio, network and multimedia drivers to match
