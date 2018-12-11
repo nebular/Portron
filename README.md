@@ -107,6 +107,9 @@ Package structure:
                         electron-tgz2xzm and include it on custom porteus systems.
 
         ./src           source distrinution packages, not needed for building normally,
+                        as a default distro image is already provided (name "default").
+                        <a href="src/README.md">Check out the specific document about sources.</a>
+                        document
                         but provided just in case you need to modify the core modules.
 
                         000-kernel
