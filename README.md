@@ -20,6 +20,19 @@ The bootable system includes graphical wizards to configure the system from a fr
 network, screen resolution, sound, microphone, keyboard layout ... as well as an option
 to install the system persistently to the Hard Disk, SD-Card or the same USB Key.
 
+But the star feature is the one that the bootable system does not include: The bloat. The system
+is designed to be unobtrusive, even transparent. Besides the UI of the Wizards that are launched
+to change settings, configure network or install the application, there's nothing else but your
+application full-screen, without any borders, distractions or possiblity to interact with the
+underlying OS.
+
+A typical flow of your electron app launched on a computer from power-on would be:
+
+    * The splash screen YOU provide
+    * Your application, fullscreen.
+
+    nothing else.
+
 <h2>How to use PorTron?</h2>
 
 <li>clone PorTron-builder in eg. /opt/portron and run the installation script for
