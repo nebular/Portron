@@ -149,14 +149,5 @@ License
 TO-DO
 ------
 
-    The install wizards are recycled from the original Porteus. The original distro
-    uses a pretty elaborate and obfuscate encryption system to keep the settings. This
-    is not used here, but there might be some code remaining as it is deep buried into
-    Porteus codebase.
-
-
-    Our decision is to keep most settings unencrypted at the persistent partition,
-    so values like the screen can be changed without the n
-
-
+- Improve Installation wizards
 
