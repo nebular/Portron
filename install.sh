@@ -29,12 +29,12 @@ if [ ! "`command -v mksquashfs`" ]; then
 
     if [ "`command -v apt-get`" ]; then
 
-        apt-get update && apt-get install squashfs
+        apt-get update && apt-get install cdrtools squashfs
 
     elif [ "`command -v brew`" ]; then
 
         echo "- OSX detected, using brew"
-        brew install squashfs gcc
+        brew install squashfs cdrtools gcc
 
     else
 
