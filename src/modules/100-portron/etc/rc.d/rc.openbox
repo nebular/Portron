@@ -102,6 +102,8 @@ fi
 # Delete unneeded utilities and logs:
 rm -rf /tmp/log
 
+[ -d /home/guest/.init ] || mkdir /home/guest/.init
+
 # Booting is finished - start application:
 
 for script in `ls -1 /etc/rc.d/local_app.d`; do
