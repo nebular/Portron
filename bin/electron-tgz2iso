@@ -4,7 +4,7 @@
 # (C) 2018 Rodolfo Lopez Pintor - Nebular Streams
 # GNU GPL 2.0
 
-tarfile="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+[ "$1" ] && tarfile="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
 image="$(cd "$(dirname "$2")"; pwd)/$(basename "$2")"
 destination="$(cd "$(dirname "$3")"; pwd)/$(basename "$3")"
 
@@ -27,59 +27,58 @@ LIB="$(cd "$(dirname "$LIB")"; pwd)/$(basename "$LIB")"
 echo "$(basename $0) $1 $2 $3 $4"
 echo "--------------------------------------------------------"
 
+if [ "${tarfile}" ]; then
 
-if [ -f ${tarfile} ]; then
+    if [ -f ${tarfile} ]; then
 
-    echo "- electron tar.gz application ${tarfile}"
-    echo "- longname ${longname}"
-    echo "- appname ${appname}"
-    echo "- source distro ${distro}"
-    echo "- destination ${destination}"
+        echo "- electron tar.gz application ${tarfile}"
+        echo "- longname ${longname}"
+        echo "- appname ${appname}"
+        echo "- source distro ${distro}"
+        echo "- destination ${destination}"
 
-    echo "--------------------------------------------------------"
+        echo "--------------------------------------------------------"
 
-    xzmfile=/tmp/${appname}.xzm
+        xzmfile=/tmp/${appname}.xzm
 
-    [ -f ${destination} ] && rm -f ${destination}
+        [ -f ${destination} ] && rm -f ${destination}
 
-    ./electron-tgz2xzm ${tarfile} ${xzmfile} ${appname} ${longname}
+        ./electron-tgz2xzm ${tarfile} ${xzmfile} ${appname} ${longname}
 
-    ./electron-xzm2iso ${xzmfile} ${destination} ${appname} ${image} ${distro}
+        ./electron-xzm2iso ${xzmfile} ${destination} ${appname} ${image} ${distro}
 
-    rm -f ${xzmfile}
+        rm -f ${xzmfile}
 
-    if [ -f "${destination}" ]; then
+        if [ -f "${destination}" ]; then
 
-           echo "- success, ISO was created"
+               echo "- success, ISO was created"
 
-           if [ "`command -v say`" ]; then
-                say "portron application ${appname} ready!"
-           fi
+               if [ "`command -v say`" ]; then
+                    say "portron application ${appname} ready!"
+               fi
+        else
+               echo "- error, ISO was not created"
+
+               if [ "`command -v say`" ]; then
+                    say "life sucks"
+               fi
+
+        fi
+
     else
-           echo "- error, ISO was not created"
 
-           if [ "`command -v say`" ]; then
-                say "life sucks"
-           fi
-
+        echo "*** Error: Tar file ${tarfile} not found."
+        exit 1
     fi
 
 else
-
-    if [ "${tarfile}" ]; then
-        echo "*** Error: Tar file not found."
-        exit 1
-    else
-
-        echo "PURPOSE: Create an installable ISO from an electron-builder"
-        echo "Linux application (tar.gz). The resulting ISO can be either"
-        echo "used as a LiveCD / LiveUSB or install to persistent media."
-        echo "ISO is based on porteus-kiosk distribution."
-        echo ""
-        echo "- USAGE: $(basename $0) electronapp.tar.gz splashscreen.jpg destination.iso distro_name"
-        echo "- DEPENDENCIES: mksquashfs, isohybrid (source included)"
-        echo "- BASE PORTRON: in ${LIB}"
-        echo
-    fi
-
+    echo "PURPOSE: Create an installable ISO from an electron-builder"
+    echo "Linux application (tar.gz). The resulting ISO can be either"
+    echo "used as a LiveCD / LiveUSB or install to persistent media."
+    echo "ISO is based on portron linux distribution."
+    echo ""
+    echo "- USAGE: $(basename $0) electronapp.tar.gz splashscreen.jpg destination.iso distro_name"
+    echo "- DEPENDENCIES: mksquashfs, mkisofs"
+    echo "- BASE PORTRON: in ${LIB}"
+    echo
 fi
