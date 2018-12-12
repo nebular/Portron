@@ -7,7 +7,7 @@
 # Author: Rodolfo Lopez Pintor 2018
 #
 
-. /etc/profile.d/portron
+. /etc/profile.d/portron.sh
 
 get_config(){
     [ -d ${NEO_CFG_ROOT_VAR} ] && {
