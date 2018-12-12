@@ -1,10 +1,10 @@
 <h1>Portron</h1>
-<h2>Transform any electron application into a bootable bulletproof kiosk system</h2>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
-
 
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
+
+<h2>Transform any electron application into a bootable bulletproof kiosk system</h2>
 
 A One-liner will transform your electron application into an installable ISO
 with a super-slim linux system fine-tuned to launch your electron application in kiosk
