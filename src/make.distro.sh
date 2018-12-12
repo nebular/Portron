@@ -12,7 +12,7 @@ TARGET=${PORTRONLIB}/portron.${1}
 
 if [ -d ${TARGET} ]; then
     echo "Distro ${TARGET} already exists. Delete it manually and rerun the command."
-    exit
+    exit 2
 fi
 
 [ -d ${TARGET} ] && rm -rf TARGET

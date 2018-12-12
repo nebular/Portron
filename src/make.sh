@@ -12,10 +12,7 @@ fi
 BASE="$(cd "$(dirname "$0")"; pwd)"
 cd ${BASE}
 
-
-./make.distro.sh $1
-./make.init.sh $1
-./make.modules.sh $1
+./make.distro.sh $1 && ./make.init.sh $1 && ./make.modules.sh $1
 
 
 

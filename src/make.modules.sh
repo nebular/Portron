@@ -10,14 +10,14 @@ if [ -d ${TARGET} ]; then
     [ -d ${TARGET}/xzm ] && rm -rf  ${TARGET}/xzm
     mkdir -p ${TARGET}/xzm
     cd modules
-    ${PORTRONDIR}/bin/mkxzm ${TARGET}/xzm/${TARGET}/xzm/000-kernel.xzm 000-kernel
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/000-kernel.xzm 000-kernel
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/001-core.xzm 001-core
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/002-system.xzm 002-system
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/003-theme.xzm 003-theme
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/004-wifi.xzm 004-wifi
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/99-xterm.xzm 99-xterm
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/100-portron.xzm 100-portron
-    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/101-portron-wizard.xzm 101-portron-wizard
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/101-portron-wizard 101-portron-wizard
     cd ..
 else
     echo "Usage: ${0} distro \n"

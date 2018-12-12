@@ -25,5 +25,6 @@ else
     echo "this would create the initrd and save it to the specified distro image,"
     echo "that can then be used by electron-tgz2iso."
     printdistros
+    exit 1
 fi
 
