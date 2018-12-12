@@ -102,13 +102,14 @@ fi
 # Delete unneeded utilities and logs:
 rm -rf /tmp/log
 
-[ -d /home/guest/.init ] || mkdir /home/guest/.init
-
-# Booting is finished - start application:
+# Booting is finished - start application scripts:
 
 for script in `ls -1 /etc/rc.d/local_app.d`; do
+
     echo "- running appscript {$script}"
-    . /etc/rc.d/local_app.d/${script}
+    # app scripts are run as user guest
+    su -c /etc/rc.d/local_app.d/${script} guest
+
 done
 
 echo "- idle"

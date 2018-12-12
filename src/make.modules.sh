@@ -17,7 +17,7 @@ if [ -d ${TARGET} ]; then
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/004-wifi.xzm 004-wifi
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/99-xterm.xzm 99-xterm
     ${PORTRONBIN}/mkxzm ${TARGET}/xzm/100-portron.xzm 100-portron
-    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/101-portron-wizard 101-portron-wizard
+    ${PORTRONBIN}/mkxzm ${TARGET}/xzm/101-portron-wizard.xzm 101-portron-wizard
     cd ..
 else
     echo "Usage: ${0} distro \n"

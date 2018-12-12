@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# portron user settings dir
+[ -d /home/guest/.init ] || mkdir /home/guest/.init
+
+# electron homedir
+[ -d /home/guest/.config ] || mkdir /home/guest/.config
+
+# app runs as guest
+chown guest:guest /home/guest
+chown -R guest:guest /home/guest/*
+
