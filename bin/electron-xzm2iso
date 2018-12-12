@@ -10,9 +10,11 @@ destination=$2
 appname=$3
 image=$4
 
+
 distro=../lib/$5
 
-BASE="$(dirname "$(readlink "$0")")"
+export PORTRONBIN="$(cd "$(dirname "${0}")"; pwd)"
+BASE=${PORTRONBIN}
 cd ${BASE}
 
 
@@ -36,6 +38,8 @@ if [ "${appname}" ]; then
 
             TEMP=/tmp/distro.${appname}
 
+            echo $0 $1 $2 $3 $4
+
             echo "-------------------------------------------------"
             echo "xzm2iso, Building Porteus distro ${4} from XZM module"
 
@@ -44,6 +48,7 @@ if [ "${appname}" ]; then
             echo "- Target ISO ${destination}"
             echo "- App Name ${appname}, image ${image}"
             echo "- temp folder ${TEMP}"
+            echo "- base folder ${BASE}"
             echo "-------------------------------------------------"
 
 
@@ -55,7 +60,7 @@ if [ "${appname}" ]; then
 
             [ -f ${xzmfile} ] && {
                 ./1-copy-xzm.sh ${xzmfile} ${TEMP} ${image}
-                ./2-make-iso.sh ${appname} ${TEMP} ${destination}
+                . ./2-make-iso.sh ${appname} ${TEMP} ${destination}
             } || {
                 error "- XZM not found"
             }

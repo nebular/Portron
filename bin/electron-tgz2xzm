@@ -10,6 +10,8 @@ appname=$3
 longname=$4
 an=$0
 
+BASE="$(cd "$(dirname "${0}")"; pwd)"
+
 error() {
     echo "${an}, tool to convert an electron-builder linux .tar.gz application to a XZM Porteus or Slackware Module"
     echo "USAGE: ${an} application.tar.gz filename.xzm app_short_name app_long_name"
@@ -36,7 +38,6 @@ if [ "${appname}" ]; then
 
             echo "-------------------------------------------------"
 
-            BASE="$(dirname "$(readlink "$0")")"
             cd ${BASE}/tgz2xzm
 
             rm -f ${destination}

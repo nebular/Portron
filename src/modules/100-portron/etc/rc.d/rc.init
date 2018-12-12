@@ -38,7 +38,7 @@ echo "* ${fecha} ---- START SYSTEM rc.init -----"
 
 
     # Variables:
-    . /etc/profile.d/variables.sh
+    # . /etc/profile.d/variables.sh
 
     # Rebuild libraries cache:
     ldconfig

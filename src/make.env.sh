@@ -17,4 +17,5 @@ export PORTRONBIN="${PORTRONDIR}/bin"
 printdistros() {
     echo "\nAvailable installed distros:"
     for i in $(ls -d  ${PORTRONLIB}/portron.*/); do echo `basename ${i%%/}`; done
+    echo "\nSpecify the distro name without the \"portron.\" prefix.\n"
 }

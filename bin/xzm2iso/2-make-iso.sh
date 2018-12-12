@@ -6,20 +6,25 @@ destination=$3
 
 [ -f ${distro}/make_iso.sh ] && {
 
+
     cd ${distro}
-
-
-    ./make_iso.sh
-
+    rm -f ../Portron.${1}.iso
+    ./make_iso.sh ../Portron.${1}.iso
+    pwd
     cd ..
     echo "- Building HYBRID ISO UEFI for ${appname}"
-    ../bin/isohybrid/isohybrid -u Porteus-Kiosk.iso
-    rm -f ${destination}
-    mv Porteus-Kiosk.iso ${destination}
-    echo "- created ${destination}"
+    ${PORTRONBIN}/isohybrid/isohybrid -u Portron.${1}.iso
 
+    if [ -f Portron.${1}.iso ]; then
+        [ -f ${destination} ] && rm -f ${destination}
+        mv Portron.${1}.iso ${destination}
+        echo "- created ${destination}"
+    else
+        echo "- error generating iso"
+        exit 1
+    fi
 } || {
 
     echo "- distro not found at ${distro}"
-
+    exit 1
 }

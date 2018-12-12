@@ -13,38 +13,23 @@ export MODPROBE="/union/sbin/modprobe"
 . init.config
 . init.lib
 
-
 RED="[1;31m"
 
+# file that contains signatures of modules encrypted. At the moment are not enforced, but the
+# file is generated. On boot, we search for this well-known location to determine if we have found
+# the partition to boot from.
+
 FLAGFILE=docs/image.md5
-FLAGFOLDER=conf
-
-
-# Install busybox applets then mount /proc, /sys and devtmpfs required for booting:
-/bin/busybox --install -s
-
-stty -echo
-echo -e "\e[?25l"
-
-mount -nt proc proc /proc
-echo 0 >/proc/sys/kernel/printk 2>/dev/null
-
-clear
-
-mount -nt sysfs sysfs /sys
-mount -nt devtmpfs none /dev
-mkdir -p /dev/shm
-chmod 1777 /dev/shm
-
-# Variables:
-grep -q -w debug /proc/cmdline || quiet=yes
-
-i=`echo "[1;33m""^ ""[0m"`
-IP=`egrep -o "http_server=[^ ]+" /proc/cmdline | cut -d= -f2-`
-
-
 
 # Functions:
+lowlevelinit() {
+    mount -nt proc proc /proc 2>/dev/null
+    mount -nt sysfs sysfs /sys
+    mount -nt devtmpfs none /dev
+    mkdir -p /dev/shm
+    chmod 1777 /dev/shm
+    echo 0 >/proc/sys/kernel/printk 2>/dev/null
+}
 
 # search boot device
 search() {
@@ -112,13 +97,6 @@ lazy_nap() {
     sleep 1
 }
 
-# exit
-
-escape() {
-    umount -nl /mnt/${DEV} 2>/dev/null
-    sleep 10
-    /sbin/poweroff -f
-}
 
 fs_init() {
     # Changes always in memory:
@@ -126,7 +104,7 @@ fs_init() {
     mkdir -p /memory/xino /memory/changes /memory/images /memory/copy2ram
 }
 
-
+# untested
 boot_pxe() {
 
     logme "- attempting PXE boot"
@@ -136,37 +114,35 @@ boot_pxe() {
 
     ./busybox udhcpc >/dev/null || . fatal
     logme "downloading kiosk data from the server" ${i}
-    
+
     MNTXZM=/memory/copy2ram
 
     MNTDOC=/mnt/net/docs
     MNTCONF=/mnt/net/conf
     MNTISO=/mnt/net
-    
+
     mkdir -p ${MNTDOC}
     cd ${MNTDOC}
-    
-    /busybox wget -q http://${IP}/docs/default.jpg http://${IP}/${FLAGFILE} http://${IP}/docs/version
-    /busybox wget -q http://${IP}/docs/kiosk.jpg 2>/dev/null
+
+    /busybox wget -q http://${KP_IP}/docs/default.jpg http://${KP_IP}/${FLAGFILE} http://${KP_IP}/docs/version
 
     cd ${MNTCONF}
-    /busybox wget -q http://${IP}/conf/${MAC} 2>/dev/null
+    /busybox wget -q http://${KP_IP}/conf/${MAC} 2>/dev/null
     cd /
 
-    for x in `/busybox wget -q -O- http://${IP}/xzm | tr " " "\n" | grep -i "href.*.xzm</" | cut -d">" -f2 | cut -d"<" -f1`; do
+    for x in `/busybox wget -q -O- http://${KP_IP}/xzm | tr " " "\n" | grep -i "href.*.xzm</" | cut -d">" -f2 | cut -d"<" -f1`; do
         echo "$x" >>/tmp/modules-pxe
     done
 
     grep -q xzm /tmp/modules-pxe 2>/dev/null && rm -rf /lib || {
-        echo "${RED}HTTP server not accessible? - exiting ...""[0m"
-        escape;
+        escape "HTTP server not accessible? - exiting ..."
     }
 
     NUM=`grep -c '.' /tmp/modules-pxe 2>/dev/null`
     for y in `cat /tmp/modules-pxe 2>/dev/null`; do
         [ "$quiet" ] || echo -en "[1;33m""  ($NUM modules left)  \r""[0m"
         let NUM=NUM-1
-        /busybox wget -q -O ${MNTXZM}/${y} http://${IP}/xzm/${y} 2>/dev/null
+        /busybox wget -q -O ${MNTXZM}/${y} http://${KP_IP}/xzm/${y} 2>/dev/null
     done
 }
 
@@ -187,27 +163,20 @@ boot_normal() {
 }
 
 
-boot() {
+startlinux() {
 
-    [ "`grep -w initrd_debug /proc/cmdline`" ] && {
-        escapetoshell
+    [ "${KP_INITRD_DEBUG}" ] && {
+
+        # blocking shell, exit to continue booting
+        escapetoshell "Type EXIT to continue booting."
+
     }
 
-    # Finish:
+    # the matrix is ready. blue pill.
     exec /sbin/switch_root /union /sbin/init
 
 }
 
-escapetoshell() {
-
-    echo -e "${RED}Feel free to take a look at the backroom! Type EXIT to resume."
-    echo
-
-    enablekeyboard
-    stty echo
-    /bin/busybox sh
-
-}
 
 aufs_setup() {
 
@@ -219,8 +188,7 @@ aufs_setup() {
         for x in ${MNTXZM}/*; do
             logme "- loading ${x}"
             cp -a ${x} /memory/copy2ram || {
-                echo -e "${RED}\nNot enough memory to copy all kiosk data - we can't continue, exiting....""[0m"
-                escape
+                escape "Not enough memory to copy all kiosk data - we can't continue, exiting...."
             }
         done
     }
@@ -232,9 +200,7 @@ aufs_setup() {
         if [ $? -eq 0 ]; then
             mount -no remount,add:1:/memory/images/$x=rr aufs /union
         else
-            echo ${i}"[1;36m""Cannot read $x. Corrupted module?""[0m"
-            echo -e "${RED}\nPlease burn the Kiosk ISO once again, exitig now...""[0m"
-            escape
+            escape "Cannot read $x. Corrupted module?"
         fi
     done
 
@@ -259,6 +225,27 @@ aufs_copyshit() {
 
 ################################################################################################
 
+# Install busybox applets then mount /proc, /sys and devtmpfs required for booting:
+/bin/busybox --install -s
+
+lowlevelinit
+
+stty -echo
+echo -e "\e[?25l"
+clear
+
+
+# Variables:
+
+i=`echo "[1;33m""^ ""[0m"`
+
+KP_IP=`egrep -o "http_server=[^ ]+" /proc/cmdline | cut -d= -f2-`
+grep -q -w debug /proc/cmdline || quiet=yes
+grep -q -w initrd_debug /proc/cmdline && {
+    KP_INITRD_DEBUG=yes
+    unset quiet
+}
+
 ## Let's start!
 
 [ "$quiet" ] || {
@@ -276,12 +263,13 @@ else
     boot_normal
 fi
 
-
 if [ -z "$quiet" ]; then
 
     echo -en "                                                                        \r"
 
 else
+
+    # splash screen
 
     video_setup ${MNTXZM}
     video_init
@@ -292,11 +280,20 @@ fi
 aufs_setup
 aufs_copyshit
 
+# necessary to get MAC
 enablenetwork
+
+# load all config values from the encrypted TGZ
 loadfixedconfig ${MNTISO} ${DEV}
+
+# process special config values starting with SYS_
+# they wont make it into userland (sensitive), we process them here. exmaple: ssh password
 processprivilegedconfig
+
+# populate /var/run/conf.d with above parameters
 exportkernelparams
 
+# free device as stuff is in ram
 umount -n /mnt/${DEV} 2>/dev/null
 
-boot
+startlinux

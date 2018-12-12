@@ -12,7 +12,6 @@ reformat() {
 }
 
 # repartition $1 = partition $2 = bdev
-
 repartition() {
 
     if [ ! -b "$1" -a "$1" ]; then
@@ -52,10 +51,8 @@ if echo ${bdev} | grep -q "2$"; then
     fi
 fi
 
-. /etc/profile.d/variables.sh
-
 # Keep devices up:
-rm -f ${scripts}/power_saver
+rm -f ${SCRIPTS}/power_saver
 
 # Skip if booting from optical media or over PXE:
 if [ "$bdev" != "/dev/sr0" -a "$bdev" != "/dev/net" ]; then

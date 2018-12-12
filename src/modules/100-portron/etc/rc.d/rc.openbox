@@ -8,8 +8,6 @@ trap initerror SIGHUP SIGINT SIGTERM
 
 # Setup variables:
 
-. /etc/profile.d/variables.sh
-
 PTH=/usr/share/icons/oxygen/22x22
 
 initerror() {
@@ -50,13 +48,6 @@ chmod 640 /var/log/Xorg.0.log*
 
 fecha=`date`
 echo "* ${fecha} - AUTOSTART -------------"
-
-#[ -f /var/run/portron.kp.debug ] && /usr/bin/xterm
-
-#for script in `ls -1 /etc/rc.d/local_gui.d`; do
-#    echo "- running guiscript {$script}"
-#    . /etc/rc.d/local_gui.d/${script}
-#done
 
 # Power saving tweaks:
 #if ! egrep -q -v '^Filename|^/dev/zram' /proc/swaps; then

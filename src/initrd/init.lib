@@ -115,3 +115,29 @@ setuserpassword() {
         logme "- Setting ${1} password ${PASSWORD}"
     }
 }
+
+
+escapetoshell() {
+
+    echo -e "${RED}${1}"
+    echo
+
+    enablekeyboard
+
+    stty echo
+    /bin/busybox sh
+}
+
+
+# exit
+# $1 message
+
+escape() {
+
+    echo -e "${RED}${1}""[0m"
+
+    umount -nl /mnt/${DEV} 2>/dev/null
+    sleep 10
+    /sbin/poweroff -f
+}
+

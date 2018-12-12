@@ -25,12 +25,13 @@ export NEO_ISOROOT=/mnt/ISO
 export NEO_SGNFILE=image.md5
 export NEO_GEN_GRUBROOT=/opt/setup/wizards/lib/boot
 export NEO_GEN_NETSUPPLICANT=/tmp/wpa_supplicant.conf
-
+export SCRIPTS=/opt/scripts
 export OXYGEN=/usr/share/icons/oxygen
 export DWARN=${OXYGEN}/32x32/status/dialog-warning.png
 export DINFO=${OXYGEN}/32x32/status/dialog-information.png
 export DERROR=${OXYGEN}/32x32/status/dialog-error.png
 export DOK=${OXYGEN}/32x32/actions/dialog-ok-apply.png
+
 
 
 
