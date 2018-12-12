@@ -1,3 +1,0 @@
-@-moz-document regexp("^about:about.*|^about:addons.*|^about:accounts.*|^about:config.*|^about:customizing.*|^about:debugging.*|^about:home.*|^about:memory.*|^about:networking.*|^about:preferences.*|^about:support.*|^about:sync-log.*|^about:telemetry.*|^about:webrtc.*|^view-source:.*|^chrome:.*|^file:.*") {
-html, page, window { display: none !important; }
-}

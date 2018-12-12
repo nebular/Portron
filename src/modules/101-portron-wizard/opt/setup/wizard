@@ -7,7 +7,7 @@
 # else installer
 #
 
-. /etc/profile.d/portron
+. /etc/profile.d/portron.sh
 
 cd /opt/setup
 

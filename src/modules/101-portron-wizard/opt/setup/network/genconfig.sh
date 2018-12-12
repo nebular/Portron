@@ -2,7 +2,7 @@
 
 cd /opt/setup/network
 
-source /etc/profile.d/portron
+source /etc/profile.d/portron.sh
 
 
 value() {

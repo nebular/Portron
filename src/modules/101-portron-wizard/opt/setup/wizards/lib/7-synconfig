@@ -1,5 +1,5 @@
 #!/bin/bash
-. /etc/profile.d/portron
+. /etc/profile.d/portron.sh
 
 echo "- syncing config"
 cp ${NEO_CFG_ROOT}/* ${NEO_CFG_ROOT_VAR}

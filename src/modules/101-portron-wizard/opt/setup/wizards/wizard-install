@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. /etc/profile.d/portron
+. /etc/profile.d/portron.sh
 
 # Portron Install Wizard
 # A wizard for settings and features in Portron Disribution

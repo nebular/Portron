@@ -1,7 +1,7 @@
 #!/bin/sh
 
 cd /opt/setup/network
-. /etc/profile.d/portron
+. /etc/profile.d/portron.sh
 
 [ -f /tmp/net-abort ] && {
     rm -f /tmp/net-abort

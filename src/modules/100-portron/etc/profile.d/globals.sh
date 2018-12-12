@@ -2,5 +2,4 @@
 
 # Export variables:
 export \
-scripts=/opt/scripts \
 DISPLAY=:0
