@@ -8,5 +8,5 @@
 
 # app runs as guest
 chown guest:guest /home/guest
-chown -R guest:guest /home/guest/*
+chown -R guest:guest /home/guest/.*
 
