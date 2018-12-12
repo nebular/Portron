@@ -1,7 +1,7 @@
-<h1>PorTRON 0.4 alpha</h1>
+<h1>Portron</h1>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
-<h2>PorTRON: Where Porteus meets Electron</h2>
+<h2>Portron: Where Porteus meets Electron</h2>
 
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
@@ -12,21 +12,31 @@ mode, and provide all network and multimedia services. The script can be used st
 or ideally integrated into your build system to automatically generate the bootable
 media with the rest of your artifacts.
 
-Portron is based on Porteus-Kiosk distribution, a proven technology that features the
-latest Linux kernel and relevant video, audio, network and multimedia drivers to match
-today's embedded and desktop devices.
+
+<H3>Porteus meets Electron</h3>
+
+Portron is based on  Porteus-Kiosk distributions, a famous distribution for Kiosk devices
+that features a modern 64bit Linux kernel and relevant video, audio, network and multimedia drivers
+for today's devices, as well as a rock-solid, bulletproof and slimmed down linux system.
+
+We have further finetuned the system to play nice with electron. Features like multi-monitors,
+touch screens, HDMI audio, hotplugging, storage of app cache settings in memory or storage partition ...
+have been taken care of.
 
 The bootable system includes graphical wizards to configure the system from a fresh run:
 network, screen resolution, sound, microphone, keyboard layout ... as well as an option
-to install the system persistently to the Hard Disk, SD-Card or the same USB Key.
+to install the system to the Hard Disk, SD-Card or the same USB Key (persistent installation)
 
-But the star feature is the one that the bootable system does not include: The bloat. The system
-is designed to be unobtrusive, even transparent. Besides the UI of the Wizards that are launched
-to change settings, configure network or install the application, there's nothing else but your
+But all this will be done in a whisper, then your application takes over.
+
+<h3>Your application runs the show</h3>
+
+Portron star feature is invisibility. Besides the UI of the Wizards that are launched
+to change settings, configure network or install to disk, there's nothing else but your
 application full-screen, without any borders, distractions or possiblity to interact with the
 underlying OS.
 
-A typical flow of your electron app launched on a computer from power-on would be:
+A typical screen flow of your lectron app launched on a computer from power-on would be:
 
     * The splash screen YOU provide
     * Your application, fullscreen.
@@ -87,7 +97,8 @@ Likewise, that name should also be the name of your electron package. If it soun
 
 The scripts are still a little rough, and if this dependencies are not met they can fail unpredictably.
 
-    mksquashfs (debian package squashfs-tools)
+    mksquashfs (debian package squashfs-tools / brew package squashfs)
+    mkisofs (debian package cdrtools / brew cdrtools))
     isohybrid (included, compiles on installation)
 
 <code>Isohybrid</code> source code is provided, as it is a very small program, you can compile it yourself with gcc if not able to install it from your repository.
@@ -104,36 +115,38 @@ Package structure:
                         can also generate the electron XZM module only with
                         electron-tgz2xzm.
 
-        ./src           source distrinution packages, not needed for building normally,
-                        as a default distro image is already provided (name "default").
-                        <a href="src/README.md">Check out the specific document about sources.</a>
+        ./src           Portron SDK, not needed for packaging applications. Allows to cook
+                        "distro images" that are used by the tool to package your application.
+                        You can have several distro images finetuned for different purposes..
 
         ./lib           build support files
 
             ./portron.default/
-                    Source Portron Distribution. You can create additional distributions to use as build source
-                    using the Portron Development Tools in src/
+                    Portron Distribution used by the build tool to create the ISO.
+                    You can create additional distributions using the Portron Development
+                    Tools in src/
 
             ./xzm.fs
-                    root filesystem that is packed with your electron app. It basically
-                    includes native linux dependencies for Electron, and some scripts.
-                    You can tweak values or include additional native libraries here.
+                    a stub for your electron application with linux libraries and
+                    startup scripts. You can place scripts here to be executed at
+                    certain stages of the system initialization: Add ports to firewall, etc...,
+                    or add any required library
 
             ./src.initrd
-                    source initrd. contains low level system startup scripts.
+                    source initrd. contains Portron low level startup.
 
 <h2>Troubleshooting</h2>
 ---------------
 
-    This script is guaranteed to work in Mac OS-X Mojave, but it should
-    work in any Linux meeting the dependencies.
+    This tool is tested mostly on Mac OS-X and Debian systems, but it should work in any Linux meeting the
+    dependencies.
 
     Mac OSX:
-        brew install squashfs-tools
+        brew install squashfs-tools cdrtools gcc
         compile isohybrid in bin/isohybrid (make.sh provided, needs a basic gcc)
 
     Linux:
-        apt-get install cdrtools squashfs-tools
+        apt-get install cdrtools squashfs-tools gcc
 
 
 License
