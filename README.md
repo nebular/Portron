@@ -1,7 +1,7 @@
 <h1>Portron</h1>
 <h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
-<h2>Portron: Where Porteus meets Electron</h2>
+<h2>Transform any electron application into a bootable bulletproof kiosk system<\h2>
 
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
