@@ -4,7 +4,7 @@
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
 
-<h2>Transform any electron application into a bootable bulletproof kiosk system</h2>
+<h3>Transform any electron application into a bootable bulletproof kiosk system</h3>
 
 A One-liner will transform your electron application into an installable ISO
 with a super-slim linux system fine-tuned to launch your electron application in kiosk
