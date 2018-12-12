@@ -6,8 +6,7 @@ PROCESSNAME=${CFG_PRODUCT}
 
 startelectron() {
     cd /opt/${CFG_PRODUCT}
-#   su -c ${PROCESSNAME} guest > /var/log/portron.electron
-    ./${PROCESSNAME}
+    su -c ${PROCESSNAME} guest > /var/log/portron.electron
 }
 
 if [ -f /opt/${CFG_PRODUCT}/${PROCESSNAME} ]; then

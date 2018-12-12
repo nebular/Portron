@@ -107,8 +107,7 @@ rm -rf /tmp/log
 for script in `ls -1 /etc/rc.d/local_app.d`; do
 
     echo "- running appscript {$script}"
-    # app scripts are run as user guest
-    su -c /etc/rc.d/local_app.d/${script} guest
+    . /etc/rc.d/local_app.d/${script}
 
 done
 
