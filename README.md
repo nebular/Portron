@@ -1,5 +1,4 @@
 <h1>Portron</h1>
-<h4>(C) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
 
 Portron is a minimalistic, Super-Slim wrapper Linux distribution for your electron
 application.
@@ -152,12 +151,11 @@ Package structure:
 License
 -------
 
-GNU GPL 2.0
+(c) 2018 Rodolfo Lopez Pintor - Nebular Streams</h4>
+
+Released under GNU GPL 2.0
 Please see attached <a href="GNU_GPL">file</a>.
 
-
-TO-DO
-------
-
-- Improve Installation wizards
+Porton is based on Porteus and Porteus-Kiosk linux distributions,
+http://www.porteus-kiosl.org, released under GPU GPL 2.0
 
