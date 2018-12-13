@@ -7,8 +7,6 @@
 # else installer
 #
 
-. /etc/profile.d/portron.sh
-
 cd /opt/setup
 
 [ -d ${NEO_CFG_ROOT} ] && {

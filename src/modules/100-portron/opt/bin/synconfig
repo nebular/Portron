@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# syncs user config into runtime settings config
+
+echo "- syncing config"
+cp ${NEO_CFG_ROOT}/* ${NEO_CFG_ROOT_VAR}
+

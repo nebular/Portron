@@ -6,7 +6,7 @@ TARGET=${PORTRONLIB}/portron.${1}
 
 if [ -d ${TARGET} ]; then
 
-    rm ${TARGET}/xzm
+    rm -rf ${TARGET}/xzm
     [ -d ${TARGET}/xzm ] && rm -rf  ${TARGET}/xzm
     mkdir -p ${TARGET}/xzm
     cd modules

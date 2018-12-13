@@ -1,0 +1,18 @@
+#!/bin/sh
+
+key=${1}
+value=${2}
+
+if [ "$key" ]; then
+
+    if [ "$value" ]; then
+        echo ${2} > ${NEO_CFG_ROOT}/${1}
+        echo "- set ${1} = ${2}"
+    else
+        rm -f ${NEO_CFG_ROOT}/${key}
+        echo "- unset ${1} = ${2}"
+    fi
+
+    . /opt/bin/synconfig
+
+fi

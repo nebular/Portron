@@ -1,7 +1,5 @@
 #!/bin/sh
 
-. /etc/profile.d/portron.sh
-
 # Portron Install Wizard
 # A wizard for settings and features in Portron Disribution
 #
@@ -60,8 +58,10 @@ fi
 
 ## Create temporary working directory
 rm -rf /tmp/kwiz.* /tmp/wizard-lock 2>/dev/null
+
 export TMPDIR=/tmp/kwiz.$$
 mkdir -p ${TMPDIR}
+
 if [ $? -ne 0 ]; then
 	TMPFAIL=`gettext "Failed to create temporary directory. Fatal."`
 	xmessage "$TMPFAIL" || exit 1
@@ -555,7 +555,7 @@ export WIZARD_MAIN='
                         <label>Enable</label>
                         <default>false</default>
                         <variable>rbutSsetEn</variable>
-                        <action>if true /opt/setup/screen</action>
+                        <action>if true /opt/setup/screen ${TMPDIR}</action>
                         <action>if true echo true > ${TMPDIR}/srotDisable.mon</action>
                         <action function="disable">rbutSrotDis</action>
                         <action function="disable">rbutSrotEn</action>
@@ -1275,7 +1275,7 @@ export WIZARD_MAIN='
 	<button visible="false" tooltip-text="Proceed">
 		<label>Next</label>
 		<variable>butNextWizard</variable>
-		<input file>'$BUTNEXT'</input>
+		<input file>'${BUTNEXT}'</input>
 		<action>process_settings</action>
 		<action>echo 2 > '${TMPDIR}'/.knetPage</action>
 		<action function="refresh">nPage</action>

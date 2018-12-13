@@ -1,4 +1,5 @@
 #!/bin/sh
+
 . /opt/bin/loadvalues CFG
 
 # Kiosk Wizard - A wizard for settings and features in Porteus Kiosk
@@ -52,6 +53,7 @@ fi
 rm -rf /tmp/kwiz.* /tmp/wizard-lock 2>/dev/null
 export TMPDIR=/tmp/kwiz.$$
 mkdir -p ${TMPDIR}
+
 if [ $? -ne 0 ]; then
 	TMPFAIL=`gettext "Failed to create temporary directory. Fatal."`
 	xmessage "$TMPFAIL" || exit 1

@@ -1,7 +1,11 @@
 #!/bin/sh
 
-. /opt/bin/loadvalues CFG
+# wizard for persitent installation and live-only reimage
+
+
 cd /opt/setup
+
+. /opt/bin/loadvalues CFG
 
 
 [ "${CFG_PRODUCT}" ] && {
@@ -20,6 +24,8 @@ cd /opt/setup
 
 pwd
 sh ${CMD_WIZARD_INSTALL}
+
+
 
 [ -f /tmp/wizard-continue ] && {
 

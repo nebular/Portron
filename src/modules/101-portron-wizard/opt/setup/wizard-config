@@ -1,12 +1,10 @@
 #!/bin/sh
-/etc/profile.d/portron.sh
 
 cd /opt/setup
 
-####################################################################################################################################
-#
-# KIOSK WIZARD
-#
+# wizard for runtime configuration
+# requires persistent installation as writes settings only to home dir
+
 [ -d ${NEO_CFG_ROOT} ] && {
     sh ${CMD_WIZARD_CONFIG}
     [ -f /tmp/wizard-continue ] && {
@@ -14,13 +12,11 @@ cd /opt/setup
         rm -f /tmp/wizard-continue
 
         . wizards/lib/6-genconfig
-        . wizards/lib/7-synconfig
+        . /opt/bin/synconfig
 
         /opt/bin/reinitsound
 
         sync
-#       sleep 5
-#       reboot
     }
 } || {
     echo "- wizard not available for live environment"

@@ -1,3 +1,4 @@
+#!/bin/sh
 
 value() {
     grep "^$1=" /tmp/config | head -n1 | cut -d= -f2- | sed 's/[[:blank:]]*$//';

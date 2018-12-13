@@ -13,7 +13,12 @@ rm -f /var/run/delete_screen_config
 
 export tmpdir=/tmp/xres$$
 
-cleanup() { rm -rf ${tmpdir} /tmp/vars.txt 2>/dev/null; exit; }
+cleanup() {
+    echo "error"
+    rm -rf ${tmpdir} /tmp/vars.txt 2>/dev/null
+    exit
+}
+
 trap cleanup SIGHUP SIGINT SIGTERM
 
 ## Setup temp dir
@@ -391,6 +396,15 @@ sset=`echo ${sset} | sed 's/^\ //'`
 ## If user closed window then cleanup
 grep "abort" ${dump} && cleanup
 
+
+/opt/bin/setvalue CFG_SCREEN "${sset}"
 /opt/bin/setscreen ${sset}
 
+
+if [ "${1}" ]; then
+    if [ -f "/tmp/config" ]; then
+        # first-time install needs to write it to the old scheme
+        echo "screen_settings=${sset}" >> /tmp/config
+    fi
+fi
 

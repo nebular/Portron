@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Kiosk Wizard - A wizard for settings and features in Porteus Kiosk
 # Copyright (C) 2014-2020 Jay Flood (aka brokenman)
