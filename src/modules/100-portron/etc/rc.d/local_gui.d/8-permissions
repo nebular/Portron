@@ -8,3 +8,8 @@
 
 chmod 600 /etc/ssh/sshd_config 2>/dev/null
 chmod 640 /var/log/Xorg.0.log* 2>/dev/null
+
+# some permissions get reset after xzm mounting
+
+chmod 700 /etc/rc.d /home/guest/.portron 2>/dev/null
+chown -R root:root /home/guest/.portron 2>/dev/null
