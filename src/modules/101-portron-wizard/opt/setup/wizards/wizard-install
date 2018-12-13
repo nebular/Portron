@@ -82,14 +82,14 @@ cleanup(){
 }
 
 
-[ -e /var/run/portron.kp.dispers ] && {
+[ -e /var/run/portron/kp.dispers ] && {
     # persistence disabled
     rm ${TMPDIR}/persistence.tmp
     unset opt_pers
 
 } || {
 
-    [ -e /var/run/portron.kp.reqpers ] && {
+    [ -e /var/run/portron/kp.reqpers ] && {
 
         # persistence required
         echo "persistence=full" > ${TMPDIR}/persistence.tmp

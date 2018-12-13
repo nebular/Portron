@@ -67,8 +67,8 @@ export PCID=`grep ^ID: /etc/version | cut -d" " -f2`
 ## Functions
 ## ====================================================================
 cleanup(){
-rm -rf ${TMPDIR}
-exit
+    rm -rf ${TMPDIR}
+    exit
 }
 
 ## ====================================================================
@@ -80,12 +80,24 @@ trap 'cleanup' SIGHUP SIGINT SIGTERM
 
 # $configvar monfile
 setRadio() {
-    [ "${1}" ] && {ve=true;vd=false} || {ve=false;vd=true}
+    [ "${1}" ] && {
+        ve=true
+        vd=false
+    } || {
+        ve=false
+        vd=true
+    }
     echo ${ve} > ${TMPDIR}/${2}-en.mon
     echo ${vd} > ${TMPDIR}/${2}-dis.mon
 }
 setRadioInv() {
-    [ "${1}" ] && {ve=true;vd=false} || {ve=false;vd=true}
+    [ "${1}" ] && {
+        ve=true
+        vd=false
+    } || {
+        ve=false
+        vd=true
+    }
     echo ${vd} > ${TMPDIR}/${2}-en.mon
     echo ${ve} > ${TMPDIR}/${2}-dis.mon
 }

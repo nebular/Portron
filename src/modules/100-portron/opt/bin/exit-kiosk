@@ -40,16 +40,16 @@ genoption "Reboot" "system-reboot" "init 6" "reboot"
 genoption "Sleep" "system-suspend" "echo $(cat /sys/power/state | tr \" \" \"\n\" | sort | tail -n1) > /sys/power/state" "sleep"
 genoption "Restart" "system-log-out" "openbox --exit" "session"
 
-if [ ! -e /var/run/portron.kp.disnet ]; then
-    if [ ! -e /var/run/portron.net.wizard ]; then
+if [ ! -e /var/run/portron/kp.disnet ]; then
+    if [ ! -e /var/run/portron/net.wizard ]; then
         genoption "Network Setup" "system-suspend" "/opt/setup/network/check.sh force&"
     fi
 fi
 
-if [ -e /var/run/portron.persistence ]; then
+if [ -e /var/run/portron/persistence ]; then
     genoption "Configuration" "system-logout" "/opt/setup/wizard&"
 else
-    [ -e /var/run/portron.kp.reqpers ] || {
+    [ -e /var/run/portron/kp.reqpers ] || {
         genoption "Installation" "system-logout" "/opt/setup/wizard&"
     }
 fi

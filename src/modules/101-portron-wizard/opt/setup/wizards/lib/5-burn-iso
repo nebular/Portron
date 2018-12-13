@@ -195,7 +195,7 @@ burn_partition_persistent() {
 	# persistent / swap partition
 	# will need to keep it !!!
 
-    [ -e /var/run/portron.persistence ] && {
+    [ -e /var/run/portron/persistence ] && {
 
         [ -e /tmp/format_device ] && {
             toast ${DWARN} "Will not format your persistent partition!"
@@ -240,7 +240,7 @@ burn_ISO() {
 
     echo "- DEV_EFI ${DEV_DEVPART_EFI}, DEV_SYS ${DEV_DEVPART_SYS}"
 
-    if [ -e /var/run/portron.persistence ]; then
+    if [ -e /var/run/portron/persistence ]; then
 
         [ -f ${NEO_CFG_ROOT} ] && {
             echo "- Writing settings into persistent partition"

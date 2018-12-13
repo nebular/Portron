@@ -2,6 +2,8 @@
 
 . /opt/bin/loadvalues NET
 
+umask 200
+
 if [ "${NET_ssid}" ]; then
 
     echo "- generating network supplicant"
@@ -72,3 +74,5 @@ EOF
     fi
 
 fi
+
+umask 222

@@ -6,7 +6,7 @@ PROCESSNAME=${CFG_PRODUCT}
 
 startelectron() {
     cd /opt/${CFG_PRODUCT}
-    su -c ${PROCESSNAME} guest > /var/log/portron.electron
+    su -c ${PROCESSNAME} guest > /var/log/portron/electron
 }
 
 if [ -f /opt/${CFG_PRODUCT}/${PROCESSNAME} ]; then
@@ -16,7 +16,7 @@ if [ -f /opt/${CFG_PRODUCT}/${PROCESSNAME} ]; then
 
             startelectron
 
-            [ -f /var/run/portron.abort ] && {
+            [ -f /var/run/portron/abort ] && {
                 echo "- ABORT: do not restart application"
                 exit 1
             }
@@ -45,5 +45,5 @@ if [ -f /opt/${CFG_PRODUCT}/${PROCESSNAME} ]; then
 
     fi
 else
-        echo " - PRODUCT not found."
+        echo " - ${PRODUCT} not found."
 fi

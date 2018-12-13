@@ -12,11 +12,11 @@ CFG_SCREEN_WALLPAPER=/usr/share/wallpapers/default.jpg
 
 export PATH=$PATH:/usr/bin:/bin
 
-if [ -d ${TMP} ] || [ ! -f /var/run/portron.xsystem.started ]; then
+if [ -d ${TMP} ] || [ ! -f /var/run/portron/xsystem.started ]; then
     echo "cannot run, already running or system early stage"
 else
 
-    date > /var/run/portron.calimon.ran
+    date > /var/run/portron/calimon.ran
 
     ## Setup temp dir
     mkdir ${TMP}

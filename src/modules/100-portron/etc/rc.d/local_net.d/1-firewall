@@ -4,7 +4,7 @@
 # Author: T.Jokiel <http://porteus-kiosk.org>
 # Modified: Rodolfo Lopez <rlp@nebular.tv>
 
-[ ! -f /var/run/portron.firewall ] && {
+[ ! -f /var/run/portron/firewall ] && {
 
     # Load iptables module:
     modprobe ip_tables
@@ -20,6 +20,6 @@
     # Accept all previously established connections:
     iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 
-    touch /var/run/portron.firewall
+    touch /var/run/portron/firewall
 
 }

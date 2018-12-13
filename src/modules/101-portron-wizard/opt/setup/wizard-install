@@ -11,7 +11,7 @@ cd /opt/setup
         # kill running application
         echo "- kill running application"
 
-        touch /var/run/portron.abort
+        touch /var/run/portron/abort
         killall ${CFG_PRODUCT}
         sleep 3
 

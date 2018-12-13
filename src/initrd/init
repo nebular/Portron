@@ -93,7 +93,7 @@ lazy() {
 }
 
 lazy_nap() {
-    [ ${SLEEP} -lt 11 ] && echo -en ${i}"[1m""device not ready yet? delaying [1;33m${SLEEP}[0m[1m seconds              \r""[0m"
+    [ ${SLEEP} -lt 11 ] && logme "device not ready yet? delaying ${SLEEP} seconds              \r"
     sleep 1
 }
 
@@ -140,7 +140,7 @@ boot_pxe() {
 
     NUM=`grep -c '.' /tmp/modules-pxe 2>/dev/null`
     for y in `cat /tmp/modules-pxe 2>/dev/null`; do
-        [ "$quiet" ] || echo -en "[1;33m""  ($NUM modules left)  \r""[0m"
+        info "($NUM modules left)"
         let NUM=NUM-1
         /busybox wget -q -O ${MNTXZM}/${y} http://${KP_IP}/xzm/${y} 2>/dev/null
     done
@@ -183,6 +183,8 @@ aufs_setup() {
     # Setup aufs:
     mount -nt aufs -o nowarn_perm,xino=/memory/xino/.aufs.xino,br:/memory/changes=rw aufs /union
 
+    mkdir -p /union/var/run/portron
+
     # Copy modules to RAM if we are not doing PXE boot:
     [ "$IP" ] || {
         for x in ${MNTXZM}/*; do
@@ -196,9 +198,10 @@ aufs_setup() {
     # Populate aufs with modules:
     for x in `ls -1 /memory/copy2ram | grep \\.xzm$`; do
         mkdir -p /memory/images/${x}
-        mount -nt squashfs -o loop /memory/copy2ram/$x /memory/images/$x 2>/dev/null
+        mount -nt squashfs -o loop /memory/copy2ram/${x} /memory/images/${x} 2>/dev/null
         if [ $? -eq 0 ]; then
-            mount -no remount,add:1:/memory/images/$x=rr aufs /union
+            mount -no remount,add:1:/memory/images/${x}=rr aufs /union
+            touch /union/var/run/portron/mod.${x}
         else
             escape "Cannot read $x. Corrupted module?"
         fi
@@ -265,7 +268,7 @@ fi
 
 if [ -z "$quiet" ]; then
 
-    echo -en "                                                                        \r"
+    info "                                                                        "
 
 else
 
@@ -286,15 +289,20 @@ enablenetwork
 # -r------ permissions on kernel and conf files
 umask 200
 
+setupconfig
+
 # load all config values from the encrypted TGZ
+# uncompress them in var/run/conf.d
 loadfixedconfig ${MNTISO} ${DEV}
 
 # process special config values starting with SYS_
-# they wont make it into userland (sensitive), we process them here. exmaple: ssh password
+# they wont make it into userland (sensitive), we process them here.
+# example: ssh password
 processprivilegedconfig
 
-# populate /var/run/conf.d with above parameters
+# populate /var/run/ with kernel parameters
 exportkernelparams
+
 
 # -rw-r--r-- restore
 umask 022

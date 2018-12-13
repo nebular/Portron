@@ -49,9 +49,9 @@ route add -net 127.0.0.0 netmask 255.0.0.0 lo 2>/dev/null
         . /etc/rc.d/local_net.d/${script};
     done
 
-    touch /var/run/portron.net.started
+    touch /var/run/portron/net.started
 
 } || {
     echo "- network not configured."
-    rm /var/run/portron.net.started
+    rm /var/run/portron/net.started
 }

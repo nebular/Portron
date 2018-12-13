@@ -1,5 +1,5 @@
 #!/bin/sh
-. vars
+/etc/profile.d/portron.sh
 
 cd /opt/setup
 

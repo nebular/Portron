@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Restrict access for guest to sensitive directories/files:
+
+# already set in module
+#chmod 700 /etc/rc.d /etc/X11 /etc/xdg /lib/modules /root 2>/dev/null
+#chmod 600 /etc/inittab /etc/shadow
+
+chmod 600 /etc/ssh/sshd_config 2>/dev/null
+chmod 640 /var/log/Xorg.0.log* 2>/dev/null

@@ -40,11 +40,6 @@ checknetwork() {
 }
 
 
-# Restrict access for guest to sensitive directories/files:
-chmod 700 /etc/rc.d /etc/X11 /etc/xdg /lib/modules /opt/scripts /root 2>/dev/null
-chmod 600 /etc/inittab /etc/shadow /etc/wpa_supplicant.conf /etc/ssh/sshd_config 2>/dev/null
-chmod 640 /var/log/Xorg.0.log*
-
 
 fecha=`date`
 echo "* ${fecha} - AUTOSTART -------------"
@@ -54,17 +49,17 @@ echo "* ${fecha} - AUTOSTART -------------"
 #    /opt/scripts/power_saver
 #fi
 
-if [ -e /var/run/portron.kp.reqpers ]; then
+if [ -e /var/run/portron/kp.reqpers ]; then
 
     # requires persistence
     echo "- requires persistence"
 
-    if [ ! -e /var/run/portron.persistence ]; then
+    if [ ! -e /var/run/portron/persistence ]; then
 
         # but dont have persistence
 
         # also requires network?
-        [ -e /var/run/portron.kp.reqnet ] && {
+        [ -e /var/run/portron/kp.reqnet ] && {
             echo "- requires also network so setup network first"
             checknetwork yes
         }
@@ -88,7 +83,7 @@ fi
 
 echo "* Persistence resolved, resolving network"
 
-if [ -e /var/run/portron.kp.disnet ]; then
+if [ -e /var/run/portron/kp.disnet ]; then
 
     echo "- network disabled"
 

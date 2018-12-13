@@ -8,5 +8,5 @@ GLOBALAUTOSTART="/etc/rc.d/rc.openbox"
 # Run the global openbox autostart script
 
 if test -f ${GLOBALAUTOSTART}; then
-    . ${GLOBALAUTOSTART} > /var/log/portron.autostart
+    . ${GLOBALAUTOSTART} > /var/log/portron/autostart
 fi

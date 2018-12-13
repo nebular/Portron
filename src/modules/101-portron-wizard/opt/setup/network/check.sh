@@ -48,13 +48,13 @@ value() {
 
 runwizard() {
 
-   [ -f /var/run/portron.net.wizard ] || {
+   [ -f /var/run/portron/net.wizard ] || {
 
-       touch /var/run/portron.net.wizard
+       touch /var/run/portron/net.wizard
 
        ${CMD_NETSETUP} >/dev/null 2>&1
 
-       rm -f /var/run/portron.net.wizard
+       rm -f /var/run/portron/net.wizard
 
        [ -f /tmp/net-abort ] || {
             echo "finished wizard, restartin network"
@@ -97,7 +97,7 @@ set_network() {
                     runwizard
                 else
                     toasti "Online"
-                    touch /var/run/portron.net.online
+                    touch /var/run/portron/net.online
                 fi
             fi
         fi
@@ -105,7 +105,7 @@ set_network() {
     rm -f /tmp/launch-wizard
 }
 
-[ -f /var/run/portron.net.wizard ] && {
+[ -f /var/run/portron/net.wizard ] && {
     toasti "Network wizard already running"
     exit 0
 }
@@ -113,7 +113,7 @@ set_network() {
 network=no
 force=$1
 
-rm /var/run/portron.net.online
+rm /var/run/portron/net.online
 
 while [ "$network" = no ]; do
 
@@ -129,7 +129,7 @@ while [ "$network" = no ]; do
             # network already configured
             echo "- existing config"
 
-            [ ! -f /var/run/portron.net.started ] && {
+            [ ! -f /var/run/portron/net.started ] && {
                 # first-run also starts the network here
                 . /etc/rc.d/rc.network
             }

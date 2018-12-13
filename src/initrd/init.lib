@@ -108,6 +108,10 @@ logme() {
     [ "$quiet" ] || echo $2$1
 }
 
+info() {
+    [ "$quiet" ] || echo -en "[1;33m"${1}"                      \r""[0m"
+}
+
 setuserpassword() {
     PASSWORD=`openssl passwd -1 -salt P0l10N "${2}"`
     [ "${PASSWORD}" ] && {

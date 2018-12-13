@@ -9,7 +9,7 @@
 
 ## Bring defults:
 xrandr --auto 2>/dev/null
-rm -f /opt/scripts/files/delete_screen_config
+rm -f /var/run/delete_screen_config
 
 export tmpdir=/tmp/xres$$
 
@@ -347,15 +347,6 @@ WIZARD_SCREEN='
 		done
 		`'
 <hbox>
-	'"`if [ -e /opt/scripts/AP/ap ]; then
-                echo '<button can-default="true" has-default="true">
-                    <label>Restore default resolution</label>
-                    <input file>/usr/share/icons/oxygen/16x16/actions/edit-undo.png</input>
-                    <width>16</width>
-                    <action>touch /opt/scripts/files/delete_screen_config</action>
-                    <action function="exit">finished</action>
-                </button>'
-            fi`"'
 	<button>
 		<label>Test setup</label>
 		<input file icon="gtk-apply"></input>

@@ -10,7 +10,7 @@
     if [ -f /var/run.portron.ssh ]; then
 
         # daemon is not started
-        [ ! -f /var/run/portron.sshd ] && {
+        [ ! -f /var/run/portron/sshd ] && {
 
             # Accept new (incoming) connections on following ports:
             iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT
@@ -21,7 +21,7 @@
                 mkdir /dev/pts 2>/dev/null && mount -o mode=0620,gi d=5 -nt devpts devpts /dev/pts
                 ssh-keygen -A
                 /usr/sbin/sshd
-                touch /var/run/portron.sshd
+                touch /var/run/portron/sshd
 
             else
                 echo "SSH daemon is started already"

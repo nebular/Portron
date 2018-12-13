@@ -35,7 +35,7 @@ nopersistence() {
     echo "- No Persistence: ${1}"
 
     mkdir -p /home/guest/.portron
-    rm -f /var/run/portron.persistence
+    rm -f /var/run/portron/persistence
 
 }
 
@@ -89,7 +89,7 @@ if [ "$bdev" != "/dev/sr0" -a "$bdev" != "/dev/net" ]; then
                 grep -q -w ${fold} /proc/mounts || mount -o bind ${STORAGE}${fold} ${fold}
             done
 
-            (umask 200;touch /var/run/portron.persistence)
+            (umask 200;touch /var/run/portron/persistence)
             echo "- Persistence available at ${trg}"
             
         } || {

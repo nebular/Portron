@@ -11,7 +11,7 @@ export NEO_URL_PING_BEACON="google."
 export NEO_CFG_ROOT=/home/guest/.portron/conf.d/${MAC}
 
 # config root in /var/run (active configuration)
-export NEO_CFG_ROOT_VAR=/var/run/conf.d
+export NEO_CFG_ROOT_VAR=/etc/conf.d
 
 # is network configured file flag
 export NEO_CFG_HASNET=${NEO_CFG_ROOT_VAR}/NET_connection
