@@ -201,7 +201,9 @@ aufs_setup() {
         mount -nt squashfs -o loop /memory/copy2ram/${x} /memory/images/${x} 2>/dev/null
         if [ $? -eq 0 ]; then
             mount -no remount,add:1:/memory/images/${x}=rr aufs /union
+            # export flag to var/run so we can easily know if a module is loaded
             touch /union/var/run/portron/mod.${x}
+            chmod 400 /union/var/run/portron/mod.${x}
         else
             escape "Cannot read $x. Corrupted module?"
         fi
