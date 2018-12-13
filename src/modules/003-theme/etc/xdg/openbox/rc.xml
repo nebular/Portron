@@ -40,7 +40,7 @@
   <!-- with Smart placement on a multi-monitor system, try to place new windows
        on: 'Any' - any monitor, 'Mouse' - where the mouse is, 'Active' - where
        the active window is, 'Primary' - only on the primary monitor -->
-  <primaryMonitor>1</primaryMonitor>
+  <primaryMonitor>Mouse</primaryMonitor>
   <!-- The monitor where Openbox should place popup dialogs such as the
        focus cycling popup, or the desktop switch popup.  It can be an index
        from 1, specifying a particular monitor.  Or it can be one of the
@@ -235,26 +235,46 @@
   <!-- Set this to TRUE to move the mouse pointer across the desktop when
        switching due to hitting the edge of the screen -->
 
-  <context name="Frame">
-  <!-- Disable following mousebinding for the browser -->
-    <mousebind button="S-Left" action="Click">
-      <action name="Focus"/>
-    </mousebind>
-    <mousebind button="C-Left" action="Click">
-      <action name="Focus"/>
-    </mousebind>
-    <mousebind button="C-S-Left" action="Click">
-      <action name="Focus"/>
-    </mousebind>
-    <mousebind button="C-Up" action="Click">
-      <action name="Focus"/>
-    </mousebind>
-    <mousebind button="C-Down" action="Click">
-      <action name="Focus"/>
-    </mousebind>
+
+    <context name="Client">
+        <mousebind button="Left" action="Press">
+            <action name="Focus"/>
+            <!-- action name="Raise"/ -->
+        </mousebind>
+        <mousebind button="Middle" action="Press">
+            <action name="Focus"/>
+            <!-- action name="Raise"/ -->
+        </mousebind>
+        <mousebind button="Right" action="Press">
+            <action name="Focus"/>
+            <!-- action name="Raise"/ -->
+        </mousebind>
+    </context>
+
+    <!--
+
+    disable everythig as we plan to run just one window in kiosk mode
+    <context name="Frame">
+
+      <mousebind button="S-Left" action="Click">
+          <action name="Focus"/>
+      </mousebind>
+      <mousebind button="C-Left" action="Click">
+          <action name="Focus"/>
+      </mousebind>
+      <mousebind button="C-S-Left" action="Click">
+          <action name="Focus"/>
+      </mousebind>
+      <mousebind button="C-Up" action="Click">
+          <action name="Focus"/>
+      </mousebind>
+      <mousebind button="C-Down" action="Click">
+          <action name="Focus"/>
+      </mousebind>
   </context>
 
-  <context name="Titlebar Top Right Bottom Left TLCorner TRCorner BRCorner BLCorner">
+
+    <context name="Titlebar Top Right Bottom Left TLCorner TRCorner BRCorner BLCorner">
     <mousebind button="Left" action="Press">
       <action name="Focus"/>
       <action name="Raise"/>
@@ -277,20 +297,6 @@
     </mousebind>
   </context>
 
-  <context name="Client">
-    <mousebind button="Left" action="Press">
-      <action name="Focus"/>
-      <action name="Raise"/>
-    </mousebind>
-    <mousebind button="Middle" action="Press">
-      <action name="Focus"/>
-      <action name="Raise"/>
-    </mousebind>
-    <mousebind button="Right" action="Press">
-      <action name="Focus"/>
-      <action name="Raise"/>
-    </mousebind>
-  </context>
 
   <context name="Icon">
     <mousebind button="Left" action="Press">
@@ -357,6 +363,9 @@
       <action name="Raise"/>
     </mousebind>
   </context>
+    -->
+
+
 </mouse>
 
 <menu>
@@ -365,16 +374,20 @@
 
   <!-- default menu file (or custom one in $HOME/.config/openbox/) -->
   <file>menu.xml</file>
+
   <hideDelay>200</hideDelay>
   <!-- if a press-release lasts longer than this setting (in milliseconds), the
        menu is hidden again -->
+
   <middle>no</middle>
   <!-- center submenus vertically about the parent entry -->
+
   <submenuShowDelay>100</submenuShowDelay>
   <!-- time to delay before showing a submenu after hovering over the parent
        entry.
        if this is a negative value, then the delay is infinite and the
        submenu will not be shown until it is clicked on -->
+
   <submenuHideDelay>400</submenuHideDelay>
   <!-- time to delay before hiding a submenu when selecting another
        entry in parent menu
@@ -382,8 +395,10 @@
        submenu will not be hidden until a different submenu is opened -->
   <showIcons>no</showIcons>
   <!-- controls if icons appear in the client-list-(combined-)menu -->
+
   <manageDesktops>no</manageDesktops>
   <!-- show the manage desktops section in the client-list-(combined-)menu -->
+
 </menu>
 
 <applications>

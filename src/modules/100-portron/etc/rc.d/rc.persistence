@@ -89,7 +89,7 @@ if [ "$bdev" != "/dev/sr0" -a "$bdev" != "/dev/net" ]; then
                 grep -q -w ${fold} /proc/mounts || mount -o bind ${STORAGE}${fold} ${fold}
             done
 
-            touch /var/run/portron.persistence
+            (umask 200;touch /var/run/portron.persistence)
             echo "- Persistence available at ${trg}"
             
         } || {

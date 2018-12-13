@@ -283,6 +283,9 @@ aufs_copyshit
 # necessary to get MAC
 enablenetwork
 
+# -r------ permissions on kernel and conf files
+umask 200
+
 # load all config values from the encrypted TGZ
 loadfixedconfig ${MNTISO} ${DEV}
 
@@ -292,6 +295,9 @@ processprivilegedconfig
 
 # populate /var/run/conf.d with above parameters
 exportkernelparams
+
+# -rw-r--r-- restore
+umask 022
 
 # free device as stuff is in ram
 umount -n /mnt/${DEV} 2>/dev/null
