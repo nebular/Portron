@@ -157,5 +157,5 @@ Released under GNU GPL 2.0
 Please see attached <a href="GNU_GPL">file</a>.
 
 Porton is based on Porteus and Porteus-Kiosk linux distributions,
-http://www.porteus-kiosl.org, released under GPU GPL 2.0
+https://www.porteus-kiosk.org, released under GPU GPL 2.0
 
